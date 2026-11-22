@@ -1,0 +1,1 @@
+- A design record for Whity Desktop: whity-agent becomes the base of one desktop app with a PHP runtime, hardware drivers, edge plugins and offline sync (`docs/adr/0001-whity-desktop-foundations.md`).
