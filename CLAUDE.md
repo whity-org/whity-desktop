@@ -1,6 +1,7 @@
 ## whity-agent
 
 - Decisions: `docs/adr/0001-whity-desktop-foundations.md` (base, PHP runtime, updates, sandbox, drivers, sync, sign-in, platforms). Design: whity-core `docs/design/AGENT-PERSONAS-AND-WHITY-AGENT.md`, part B. The decision register (`docs/design/00-decision-register.md` in whity-core) is the source of truth for visual and interaction decisions.
+- Rust is a Cargo workspace: the app in `src-tauri`, engines in `crates/` with no Tauri dependency. The PHP host (`crates/php-host`, `php-host/`) runs plugins in a FrankenPHP child under the sandbox ini; PHP never gets shell, network streams or paths outside its data directory.
 - Tokens stay in Rust. The webview never receives an access or refresh token, and no command takes a file path from the webview.
 - Secrets go to the OS keychain only (`src-tauri/src/store.rs`). No plaintext fallback, ever.
 - Never write a bearer token into another tool's config file. A tool either signs in itself (URL only) or uses the stdio bridge.

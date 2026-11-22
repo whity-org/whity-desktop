@@ -35,6 +35,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "resources/frankenphp/": "frankenphp",
+      "../php-host/": "php-host"
+    },
     "macOS": {
       "signingIdentity": "-"
     }

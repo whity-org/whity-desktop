@@ -1,0 +1,25 @@
+[package]
+name = "whity-php-host"
+version = "0.1.0"
+description = "Spawns and supervises the FrankenPHP sidecar that runs Whity plugin PHP on the device (ADR 0001, decision 2a)."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The proxy to the host is async so the app's commands can await it; the
+# readiness poll and the supervisor are plain threads with plain sockets.
+reqwest = { workspace = true }
+
+# Assigns the FrankenPHP child to a Job Object with KILL_ON_JOB_CLOSE, so the
+# OS kills it however this process ends, Task Manager included.
+[target.'cfg(target_os = "windows")'.dependencies]
+win32job = "2"
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
+[dev-dependencies]
+tiny_http = "0.12"
+tokio = { workspace = true }

@@ -10,6 +10,7 @@ mod desktop;
 mod linking;
 mod loopback;
 mod oauth;
+mod php;
 mod store;
 mod tools;
 mod updates;
@@ -466,6 +467,7 @@ pub fn run() {
                 running: Mutex::new(None),
                 sessions: Mutex::new(HashMap::new()),
             });
+            app.manage(php::start(app.handle()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -489,8 +491,19 @@ pub fn run() {
             plan_connect,
             connect_tool,
             disconnect_tool,
-            restore_tool
+            restore_tool,
+            php::php_host_status,
+            php::php_request
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running whity-agent");
+        .build(tauri::generate_context!())
+        .expect("error while building whity-agent")
+        .run(|app, event| {
+            // Quit from the tray or the OS: stop FrankenPHP before the process
+            // goes. A hard kill is covered by the Job Object on Windows.
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(php) = app.try_state::<php::PhpHost>() {
+                    php.shutdown();
+                }
+            }
+        });
 }
