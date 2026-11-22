@@ -187,7 +187,7 @@ ID (open); update signing is never off.
 
 ## Build plan: small PRs, in order
 
-1. Rename to whity-desktop; Cargo workspace; this ADR. (This PR, minus the rename.)
+1. This ADR; the repository renamed to `whity-org/whity-desktop` (done 2026-11-22); then the Cargo workspace.
 2. `crates/php-host`: sidecar supervisor, proxy, FrankenPHP setup scripts, PHP host code, hardened `php.ini`.
 3. `crates/drivers`: `Driver` trait, printer driver, native bridge with per-plugin handles.
 4. Capability manifest, handles and the Off / Ask first / Allowed screen.
