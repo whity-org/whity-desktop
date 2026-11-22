@@ -6,11 +6,13 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "node scripts/copy-sdk.mjs && vite",
+    "build": "node scripts/copy-sdk.mjs && tsc && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "php:setup": "node scripts/setup-php-runtime.mjs",
+    "sdk:copy": "node scripts/copy-sdk.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

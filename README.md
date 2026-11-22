@@ -20,6 +20,31 @@ Where it is going: [ADR 0001, Whity Desktop foundations](docs/adr/0001-whity-des
 - **In the tray.** One copy runs at a time, closing the window keeps it running, and starting at login is your choice. A `whity-agent://connect?instance=<address>` link only fills in the address (`src-tauri/src/desktop.rs`).
 - **Installers and signed updates.** See [install notes, in English and Arabic](docs/INSTALL.md). OS code signing is off for now; updates are always minisign-signed against the key in `src-tauri/updater.pub`. Releases are built as drafts by `.github/workflows/release.yml` and a person publishes them.
 
+## The PHP runtime
+
+Whity plugins are PHP. The app ships [FrankenPHP](https://frankenphp.dev) and
+runs them on the device, in a child process Rust starts and supervises
+(`crates/php-host`), serving the offline host in `php-host/` ([ADR 0001](docs/adr/0001-whity-desktop-foundations.md),
+decision 2a). PHP runs under a sandbox ini the app writes at every start:
+`open_basedir` covers the host's own code and its data directory only,
+process and socket functions are disabled, and URL streams are off. The
+window reaches plugin routes only through `php_request`, on loopback.
+
+Before the first `npm run tauri dev` or `build`:
+
+```bash
+npm run php:setup
+```
+
+fetches the pinned release for this computer (Windows x64, Linux x64 or macOS
+arm64) and checks it against the digest GitHub publishes for the asset. The
+plugin SDK is copied beside the host by `npm run dev` and `npm run build`
+(`scripts/copy-sdk.mjs`): from `WHITY_CORE_DIR`, a sibling `../whity-core`
+checkout, or whity-core's `develop` on GitHub. Without the runtime the app
+still works and reports the PHP host as not installed.
+
+To boot the real runtime in a test: `WHITY_PHP_HOST_SMOKE=1 cargo test -p whity-php-host -- --ignored`.
+
 ## Develop
 
 You need Node 22, and Rust from `rust-toolchain.toml` (rustup installs it). On Linux, the Tauri system libraries (see `.github/workflows/ci.yml`).
@@ -33,7 +58,7 @@ Checks, as CI runs them:
 
 ```bash
 npm run typecheck && npm test
-cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
 ```
 
 CI also checks the `changelog.d` fragments with whity-core's changelog tool (see

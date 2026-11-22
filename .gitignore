@@ -4,3 +4,9 @@ src-tauri/target/
 src-tauri/gen/
 .DS_Store
 *.log
+target/
+# The FrankenPHP runtime (scripts/setup-php-runtime.mjs) and the plugin SDK
+# copy (scripts/copy-sdk.mjs) are made before a build, never committed.
+src-tauri/resources/
+php-host/sdk/
+php-host/var/

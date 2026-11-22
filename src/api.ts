@@ -96,3 +96,24 @@ export const takeConnectLink = () => invoke<string | null>("take_connect_link")
 export const setTrayLabels = (open: string, quit: string) => invoke<void>("set_tray_labels", { open, quit })
 export const getStartAtLogin = () => invoke<boolean>("get_start_at_login")
 export const setStartAtLogin = (enabled: boolean) => invoke<void>("set_start_at_login", { enabled })
+
+/** What the PHP runtime inside the app is doing (crates/php-host). */
+export type PhpStatus =
+  | { state: "notInstalled" }
+  | { state: "starting" }
+  | { state: "ready"; port: number }
+  | { state: "crashed"; message: string }
+  | { state: "restarting"; attempt: number }
+  | { state: "reloading" }
+  | { state: "failed"; message: string }
+
+export const phpHostStatus = () => invoke<PhpStatus>("php_host_status")
+
+export interface PhpResponse {
+  status: number
+  body: unknown
+}
+
+/** One request to a plugin route on the PHP host. Fails with "php-host-not-ready" while it starts. */
+export const phpRequest = (method: string, path: string, body?: unknown) =>
+  invoke<PhpResponse>("php_request", { method, path, body })
