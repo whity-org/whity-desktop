@@ -1,6 +1,6 @@
 ## whity-agent
 
-- Design: whity-core `docs/design/AGENT-PERSONAS-AND-WHITY-AGENT.md`, part B. The decision register (`docs/design/00-decision-register.md` in whity-core) is the source of truth for visual and interaction decisions.
+- Decisions: `docs/adr/0001-whity-desktop-foundations.md` (base, PHP runtime, updates, sandbox, drivers, sync, sign-in, platforms). Design: whity-core `docs/design/AGENT-PERSONAS-AND-WHITY-AGENT.md`, part B. The decision register (`docs/design/00-decision-register.md` in whity-core) is the source of truth for visual and interaction decisions.
 - Tokens stay in Rust. The webview never receives an access or refresh token, and no command takes a file path from the webview.
 - Secrets go to the OS keychain only (`src-tauri/src/store.rs`). No plaintext fallback, ever.
 - Never write a bearer token into another tool's config file. A tool either signs in itself (URL only) or uses the stdio bridge.
