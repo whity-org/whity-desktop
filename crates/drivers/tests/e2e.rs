@@ -1,17 +1,19 @@
 //! Boots the real FrankenPHP host with the BridgeProbe fixture plugin and
-//! drives a call from PHP, over curl, through the bridge, into the printer
-//! driver. Needs `npm run php:setup` and `npm run sdk:copy` first, then:
+//! drives calls from PHP, over curl, through the bridge, into the printer
+//! driver: an Allowed call, an undeclared one, and one the device policy has
+//! on Ask first, which becomes a proposal the test approves.
+//! Needs `npm run php:setup` and `npm run sdk:copy` first, then:
 //! `WHITY_PHP_HOST_SMOKE=1 cargo test -p whity-drivers --test e2e -- --ignored`.
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use whity_drivers::{Bridge, DefaultPolicy};
+use whity_drivers::{Bridge, Decision, ProposalEvent, StoredPolicy};
 use whity_php_host::{proxy, Layout, Sidecar};
 
 #[test]
 #[ignore]
-fn a_plugin_reaches_the_printer_driver_only_for_what_it_declared() {
+fn a_plugin_reaches_the_printer_driver_only_as_the_device_allows() {
     if std::env::var_os("WHITY_PHP_HOST_SMOKE").is_none() {
         return;
     }
@@ -21,9 +23,18 @@ fn a_plugin_reaches_the_printer_driver_only_for_what_it_declared() {
     let _ = std::fs::remove_dir_all(&data);
     std::fs::create_dir_all(&data).unwrap();
 
+    let policy = Arc::new(StoredPolicy::load(&data.join("hardware-policy.json")));
+    let events = Arc::new(Mutex::new(Vec::<String>::new()));
+    let sink = events.clone();
     let bridge = Bridge::spawn(
         Arc::new(whity_drivers::default_registry()),
-        Arc::new(DefaultPolicy),
+        policy.clone(),
+        Arc::new(move |event: ProposalEvent| {
+            sink.lock().unwrap().push(match event {
+                ProposalEvent::Opened { .. } => "opened".into(),
+                ProposalEvent::Answered { .. } => "answered".into(),
+            })
+        }),
     )
     .unwrap();
 
@@ -49,13 +60,13 @@ fn a_plugin_reaches_the_printer_driver_only_for_what_it_declared() {
     assert!(sidecar.is_ready());
     let port = sidecar.port();
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let get = |path: &str| {
+    let call = |method: &str, path: &str| {
         runtime
-            .block_on(proxy::forward(port, "GET", path, None))
+            .block_on(proxy::forward(port, method, path, None))
             .unwrap()
     };
 
-    let report = get("/__whity/native-bridge");
+    let report = call("GET", "/__whity/native-bridge");
     assert_eq!(report.status, 200, "{report:?}");
     assert_eq!(report.body["available"], true, "{report:?}");
     assert_eq!(
@@ -68,7 +79,8 @@ fn a_plugin_reaches_the_printer_driver_only_for_what_it_declared() {
         vec![("BridgeProbe".to_string(), vec!["printer.list".to_string()])]
     );
 
-    let printers = get("/api/bridge-probe/printers");
+    // Allowed by the floor.
+    let printers = call("GET", "/api/bridge-probe/printers");
     assert_eq!(printers.status, 200, "{printers:?}");
     assert_eq!(printers.body["ok"], true, "{printers:?}");
     assert!(
@@ -76,16 +88,55 @@ fn a_plugin_reaches_the_printer_driver_only_for_what_it_declared() {
         "{printers:?}"
     );
 
-    let print = runtime
-        .block_on(proxy::forward(
-            port,
-            "POST",
-            "/api/bridge-probe/print",
-            None,
-        ))
-        .unwrap();
+    // Never declared.
+    let print = call("POST", "/api/bridge-probe/print");
     assert_eq!(print.status, 403, "{print:?}");
     assert_eq!(print.body["code"], "not_declared", "{print:?}");
+
+    // Ask first: the call becomes a proposal, the person approves, it runs.
+    policy
+        .set("BridgeProbe", "printer.list", Some(Decision::AskFirst))
+        .unwrap();
+    let asked = call("GET", "/api/bridge-probe/printers");
+    assert_eq!(asked.status, 202, "{asked:?}");
+    assert_eq!(asked.body["code"], "ask_first", "{asked:?}");
+    let id = asked.body["proposalId"]
+        .as_str()
+        .expect("a proposal id")
+        .to_string();
+
+    let waiting = call("GET", &format!("/api/bridge-probe/proposals/{id}"));
+    assert_eq!(waiting.body["outcome"]["state"], "waiting", "{waiting:?}");
+    assert_eq!(bridge.proposals().list().len(), 1);
+
+    let answered = bridge.proposals().answer(&id, true).unwrap();
+    assert!(
+        matches!(answered.outcome, whity_drivers::Outcome::Done { .. }),
+        "{answered:?}"
+    );
+    let done = call("GET", &format!("/api/bridge-probe/proposals/{id}"));
+    assert_eq!(done.body["outcome"]["state"], "done", "{done:?}");
+    assert!(
+        done.body["outcome"]["result"]["printers"].is_array(),
+        "{done:?}"
+    );
+    assert_eq!(*events.lock().unwrap(), vec!["opened", "answered"]);
+
+    // Off: refused outright, no proposal.
+    policy
+        .set("BridgeProbe", "printer.list", Some(Decision::Off))
+        .unwrap();
+    let off = call("GET", "/api/bridge-probe/printers");
+    assert_eq!(off.status, 403, "{off:?}");
+    assert_eq!(off.body["code"], "off", "{off:?}");
+    assert_eq!(bridge.proposals().list().len(), 1);
+
+    // A made-up proposal id is not this plugin's.
+    let unknown = call(
+        "GET",
+        &format!("/api/bridge-probe/proposals/{}", "0".repeat(64)),
+    );
+    assert_eq!(unknown.status, 404, "{unknown:?}");
 
     sidecar.shutdown();
     let _ = std::fs::remove_dir_all(&data);

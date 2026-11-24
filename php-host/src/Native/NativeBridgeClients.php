@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Whity\Native;
 
+use Whity\PluginHost\CurrentPlugin;
 use Whity\PluginHost\LoadedPlugin;
 
 /**
@@ -18,8 +19,9 @@ use Whity\PluginHost\LoadedPlugin;
  * `['printer.print']`. A plugin without the method gets a handle with no
  * capabilities, so every call it makes is refused as `not_declared`.
  *
- * Until plugin containers are scoped per plugin, `for()` is reachable by any
- * plugin for any name; the per-plugin container PR closes that.
+ * A plugin gets its own client through {@see current()}: the host knows which
+ * plugin's route or hook is running ({@see CurrentPlugin}) and hands out that
+ * plugin's handle and no other.
  */
 final class NativeBridgeClients
 {
@@ -93,15 +95,19 @@ final class NativeBridgeClients
     }
 
     /**
-     * The client for one plugin, by its declared name.
+     * The client of the plugin whose code is running now.
      *
-     * @throws NativeBridgeUnavailableException When there is no bridge, or no
-     *         handle for that plugin.
+     * @throws NativeBridgeUnavailableException When there is no bridge, when
+     *         no plugin code is running, or when that plugin has no handle.
      */
-    public function for(string $pluginName): NativeBridgeClient
+    public function current(): NativeBridgeClient
     {
         if ($this->failure !== null) {
             throw new NativeBridgeUnavailableException($this->failure);
+        }
+        $pluginName = CurrentPlugin::name();
+        if ($pluginName === null) {
+            throw new NativeBridgeUnavailableException('the native bridge is reached from a plugin route or hook only');
         }
         if (!isset($this->clients[$pluginName])) {
             throw new NativeBridgeUnavailableException("no native bridge handle for plugin {$pluginName}");
