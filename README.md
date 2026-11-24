@@ -45,9 +45,24 @@ still works and reports the PHP host as not installed.
 
 To boot the real runtime in a test: `WHITY_PHP_HOST_SMOKE=1 cargo test -p whity-php-host -- --ignored`.
 
+## Hardware for plugins
+
+Printers, and later scanners, card readers and serial devices, are Rust
+crates behind one `Driver` trait in `crates/drivers`, each a Cargo feature.
+Plugin PHP reaches them through a loopback bridge: at boot the host asks for
+one handle per loaded plugin, bound to the capabilities that plugin declares
+with `getDesktopCapabilities()` (for example `['printer.print']`), and the
+bridge refuses a call the plugin never declared or one the device has Off.
+Printing is Allowed by default; everything else is Off until the settings
+screen lands ([ADR 0001](docs/adr/0001-whity-desktop-foundations.md), 3a and
+3b). `GET /__whity/native-bridge` on the host shows what each plugin declared.
+
+End to end, with the real runtime and a fixture plugin:
+`WHITY_PHP_HOST_SMOKE=1 cargo test -p whity-drivers --test e2e -- --ignored`.
+
 ## Develop
 
-You need Node 22, and Rust from `rust-toolchain.toml` (rustup installs it). On Linux, the Tauri system libraries (see `.github/workflows/ci.yml`).
+You need Node 22, and Rust from `rust-toolchain.toml` (rustup installs it). On Linux, the Tauri system libraries and `libcups2-dev` for the printer driver (see `.github/workflows/ci.yml`).
 
 ```bash
 npm install

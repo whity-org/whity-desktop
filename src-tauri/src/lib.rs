@@ -493,7 +493,8 @@ pub fn run() {
             disconnect_tool,
             restore_tool,
             php::php_host_status,
-            php::php_request
+            php::php_request,
+            php::native_bridge_grants
         ])
         .build(tauri::generate_context!())
         .expect("error while building whity-agent")
