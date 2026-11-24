@@ -117,3 +117,6 @@ export interface PhpResponse {
 /** One request to a plugin route on the PHP host. Fails with "php-host-not-ready" while it starts. */
 export const phpRequest = (method: string, path: string, body?: unknown) =>
   invoke<PhpResponse>("php_request", { method, path, body })
+
+/** Plugins holding a hardware handle, each with the capabilities it declared. */
+export const nativeBridgeGrants = () => invoke<[string, string[]][]>("native_bridge_grants")

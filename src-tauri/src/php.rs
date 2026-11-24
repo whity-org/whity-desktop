@@ -6,6 +6,7 @@
 use std::sync::Mutex;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
+use whity_drivers::{Bridge, BridgeHandle, DefaultPolicy};
 use whity_php_host::sidecar::simplify_path;
 use whity_php_host::{proxy, Layout, PhpStatusEvent, Sidecar};
 
@@ -14,6 +15,8 @@ use whity_php_host::{proxy, Layout, PhpStatusEvent, Sidecar};
 pub struct PhpHost {
     sidecar: Option<Sidecar>,
     last: Mutex<PhpStatusEvent>,
+    /// The hardware bridge plugins call; `None` only when it failed to bind.
+    bridge: Option<BridgeHandle>,
 }
 
 impl PhpHost {
@@ -58,7 +61,19 @@ pub fn start(app: &AppHandle) -> PhpHost {
             let _ = app.emit("php:status", event);
         }
     };
-    let sidecar = match layout(app).and_then(|layout| Sidecar::spawn(layout, vec![], listener)) {
+    // The bridge first: the host gets its address and secret in its environment.
+    let bridge = match Bridge::spawn(
+        std::sync::Arc::new(whity_drivers::default_registry()),
+        std::sync::Arc::new(DefaultPolicy),
+    ) {
+        Ok(bridge) => Some(bridge),
+        Err(reason) => {
+            eprintln!("[php] native bridge not started: {reason}");
+            None
+        }
+    };
+    let env = bridge.as_ref().map(BridgeHandle::env).unwrap_or_default();
+    let sidecar = match layout(app).and_then(|layout| Sidecar::spawn(layout, env, listener)) {
         Ok(sidecar) => Some(sidecar),
         Err(reason) => {
             eprintln!("[php] not started: {reason}");
@@ -73,6 +88,7 @@ pub fn start(app: &AppHandle) -> PhpHost {
     PhpHost {
         sidecar,
         last: Mutex::new(snapshot),
+        bridge,
     }
 }
 
@@ -102,4 +118,14 @@ pub async fn php_request(
         _ => return Err("php-host-not-ready".into()),
     };
     proxy::forward(port, &method, &path, body).await
+}
+
+/// The plugins holding a hardware handle and the capabilities each declared,
+/// for the settings screen to come.
+#[tauri::command]
+pub fn native_bridge_grants(php: tauri::State<'_, PhpHost>) -> Vec<(String, Vec<String>)> {
+    php.bridge
+        .as_ref()
+        .map(BridgeHandle::grants)
+        .unwrap_or_default()
 }

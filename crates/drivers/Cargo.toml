@@ -1,0 +1,30 @@
+[package]
+name = "whity-drivers"
+version = "0.1.0"
+description = "Hardware drivers behind one Driver trait, and the loopback bridge that lets plugin PHP reach them with a per-plugin handle (ADR 0001, decisions 3a and 3b)."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+default = ["driver-printer"]
+# Each driver is a Cargo feature: a build names the hardware it ships.
+driver-printer = ["dep:printers"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The bridge is one low-traffic loopback endpoint on its own thread; a plain
+# blocking server keeps it out of the app's async runtime.
+tiny_http = "0.12"
+# Handles and the host secret: 32 random bytes each.
+rand = "0.8"
+
+# Printer discovery and raw printing across Windows, macOS and Linux. Pinned
+# to ~2.3: two of its 2.x minors changed PrinterJobOptions and the error type.
+printers = { version = "~2.3", optional = true }
+
+[dev-dependencies]
+whity-php-host = { path = "../php-host" }
+tokio = { workspace = true }

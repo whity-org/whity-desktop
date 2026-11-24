@@ -59,7 +59,7 @@ use Whity\Database\Database;
 use Whity\Database\SequenceCounters;
 use Whity\Database\SqliteCompatPdo;
 use Whity\Http\RbacGate;
-use Whity\Native\NativeBridgeClient;
+use Whity\Native\NativeBridgeClients;
 use Whity\PluginHost\MigrationRunner;
 use Whity\PluginHost\OfflineIdentity;
 use Whity\PluginHost\PluginRuntimeLoader;
@@ -73,7 +73,6 @@ use Whity\Sdk\Sql\SequenceAllocator;
 $sqlitePath = $_ENV['WHITY_SQLITE_PATH'] ?? (__DIR__ . '/../var/whity-offline.sqlite');
 $pdo = new SqliteCompatPdo($sqlitePath);
 \Whity\register_service(Database::class, new Database($pdo));
-\Whity\register_service(NativeBridgeClient::class, NativeBridgeClient::fromEnv());
 
 $offlineTenantId = (int) ($_ENV['WHITY_OFFLINE_TENANT_ID'] ?? 1);
 $offlineProfileId = (int) ($_ENV['WHITY_OFFLINE_PROFILE_ID'] ?? 1);
@@ -125,6 +124,12 @@ RoleSeeder::grantAllToAdminRole($pdo, $permissionRegistry);
 $router = new Router('');
 $loader->registerRoutes($router);
 
+// Hardware: one bridge handle per loaded plugin, bound to the desktop
+// capabilities it declares (crates/drivers/src/bridge.rs). Done after
+// loading, so the quarantined are left out.
+$nativeBridge = NativeBridgeClients::boot($loader->getLoadedPlugins());
+\Whity\register_service(NativeBridgeClients::class, $nativeBridge);
+
 $hookManager = new HookManager();
 \Whity\register_service(HookManager::class, $hookManager);
 $loader->registerHooks($hookManager);
@@ -149,13 +154,20 @@ $permittedActionsHandler = new PermittedActionsHandler($router, $deviceRoleCheck
 $isWorker = function_exists('frankenphp_handle_request');
 $maxRequests = (int) ($_ENV['MAX_REQUESTS'] ?? 0); // 0 = unbounded
 
-$handle = static function () use ($router, $offlineTenantId, $loader, $rbacGate, $frontendFeaturesHandler, $permittedActionsHandler) {
+$handle = static function () use ($router, $offlineTenantId, $loader, $rbacGate, $frontendFeaturesHandler, $permittedActionsHandler, $nativeBridge) {
     try {
         $request = Request::fromGlobals();
 
         // Host infrastructure endpoints (not plugin routes).
         if ($request->getMethod() === 'GET' && $request->getPath() === '/__whity/health') {
             Response::json(['ok' => true])->send();
+
+            return;
+        }
+
+        // What the host told the native bridge about each plugin's hardware.
+        if ($request->getMethod() === 'GET' && $request->getPath() === '/__whity/native-bridge') {
+            Response::json($nativeBridge->report())->send();
 
             return;
         }

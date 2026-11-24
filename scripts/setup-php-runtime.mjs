@@ -8,7 +8,9 @@
 // Pinned, never "latest": a build must not pick up a new runtime by itself.
 // Each asset's SHA-256 is the digest GitHub publishes for the release asset,
 // checked here before anything is unpacked. GitHub release assets can be
-// re-uploaded under the same tag, and a changed digest refuses the download.
+// re-uploaded under the same tag, and a changed digest refuses the download:
+// it happened to v1.14.0 on 2026-11-24, all three assets, two days after the
+// tag; the digests below are the re-uploaded ones, taken from the API.
 //
 // PHP floor: never below 8.4.27 (a CVE). This release ships PHP 8.6.
 import { createHash } from 'node:crypto'
@@ -21,21 +23,21 @@ const VERSION = '1.14.0'
 const ASSETS = {
   'win32-x64': {
     name: 'frankenphp-windows-x86_64.zip',
-    sha256: '4cc1a9722e7d10a8722b23528faa8654c3362739b7b8c2997616630d1a939bdc',
+    sha256: 'f599fb251ed1d20a74d0ccc438a7f295d003dc22ae53fd5e7c6808ae3bc20be3',
   },
   'linux-x64': {
     name: 'frankenphp-linux-x86_64',
-    sha256: '8fa49e1a389788bac2efc61a7ca70be134c05b115c0ad1eab5c6814d8fa6befb',
+    sha256: '5bdc49d7914577c19b4e4748e2f55032f77edc64eeafee76bc3d1d368b6270db',
   },
   'darwin-arm64': {
     name: 'frankenphp-mac-arm64',
-    sha256: '41b6cadfcce6267f3645bf0db8f1c74d9326d183b787b121400dc2624648426c',
+    sha256: 'e0be860076c618f748a8e5794b07e16ab8953429b2835f035d12d08b6ce1adbf',
   },
 }
 
 // On Windows, PHP extensions are DLLs loaded only when php.ini names them;
 // everything else in the release is tooling the app never runs.
-const KEEP_EXTENSIONS = new Set(['php_pdo_sqlite.dll', 'php_sqlite3.dll', 'php_mbstring.dll'])
+const KEEP_EXTENSIONS = new Set(['php_pdo_sqlite.dll', 'php_sqlite3.dll', 'php_mbstring.dll', 'php_curl.dll'])
 const DROP_FROM_WINDOWS = [
   'dev', 'extras', 'lib', 'deplister.exe', 'php-win.exe', 'phpdbg.exe', 'php8phpdbg.dll',
   'php8embed.lib', 'phar.phar.bat', 'pharcommand.phar', 'php.ini-development',
@@ -102,4 +104,4 @@ if (!existsSync(join(dest, 'php.ini'))) {
   process.exit(1)
 }
 const staged = readdirSync(dest).length
-console.log(`FrankenPHP v${VERSION} staged at ${dest} (${staged} entries). PHP: ${readFileSync(join(dest, 'php.ini'), 'utf8').split('\n')[0]}`)
+console.log(`FrankenPHP v${VERSION} staged at ${dest} (${staged} entries).`)
