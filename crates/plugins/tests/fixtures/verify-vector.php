@@ -1,8 +1,7 @@
 <?php
 // Verifies attestation-vector.json the way whity-core's PluginTrust::verified()
 // and checkAttestation() do, with PHP's sodium: the same message construction
-// (format . "
-" . payload), the same envelope fields, the same reasons.
+// (format . "\n" . payload), the same envelope fields, the same reasons.
 // Run: php -d extension=sodium verify-vector.php attestation-vector.json
 declare(strict_types=1);
 
