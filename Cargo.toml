@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["src-tauri", "crates/php-host", "crates/drivers"]
+members = ["src-tauri", "crates/php-host", "crates/drivers", "crates/plugins"]
 
 # One lock file and one `target/` for the app and its crates. CI runs
 # `cargo clippy --workspace` and `cargo test --workspace` from here.

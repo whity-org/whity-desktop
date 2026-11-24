@@ -66,6 +66,26 @@ only as itself: the host knows whose route or hook is running
 End to end, with the real runtime and a fixture plugin:
 `WHITY_PHP_HOST_SMOKE=1 cargo test -p whity-drivers --test e2e -- --ignored`.
 
+## Signed plugins
+
+Only signed plugins run on the device (`crates/plugins`). A package installs
+when its bytes match the sha256 the workspace named and Whity's attestation
+for exactly that hash verifies: the envelope `{key, payload, signature}` is
+whity-core's (`src/Core/Plugin/Trust/PluginTrust.php`), Ed25519 over
+`<format>
+<payload>`, checked against public keys pinned in the crate. The
+list is empty until the owner adds a key in a reviewed change; nothing at run
+time can add a trust root, and there is no "allow unsigned" on the desktop. A
+signed revocation list with a rising sequence number is accepted the same way,
+and a `kill` entry removes the version. One envelope,
+`crates/plugins/tests/fixtures/attestation-vector.json`, is signed once and
+verified by this crate and by PHP's sodium with core's construction.
+
+The source of packages is behind `PluginSource`. The Whity ID store that will
+sign them does not exist yet, so no store endpoints are guessed here; the
+reconcile of what is installed against what the workspace says lands with
+device enrolment.
+
 ## Develop
 
 You need Node 22, and Rust from `rust-toolchain.toml` (rustup installs it). On Linux, the Tauri system libraries and `libcups2-dev` for the printer driver (see `.github/workflows/ci.yml`).
