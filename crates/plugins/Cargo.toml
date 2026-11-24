@@ -1,0 +1,27 @@
+[package]
+name = "whity-plugins"
+version = "0.1.0"
+description = "Signed plugin packages on the device: Whity's attestations and revocation list checked against keys pinned in code, the package installer, and the reconcile of what is installed against what the workspace says (ADR 0001, decisions 2b and 3a)."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+# Signing exists for tests and for the cross-language vector only. The app
+# never signs anything: it holds public keys.
+signing = []
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+base64 = "0.22"
+sha2 = "0.10"
+# Package extraction: a pure-Rust zip reader with the same zip-bomb guards as
+# core's PluginInstaller.
+zip = { version = "9", default-features = false, features = ["deflate"] }
+rand = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
