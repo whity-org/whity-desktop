@@ -8,18 +8,21 @@
 //! that gives the PHP host one opaque handle per loaded plugin, bound to the
 //! capabilities that plugin declared. A call is refused when the handle is
 //! unknown, when the plugin did not declare the capability, or when the
-//! device's [`Policy`] has it Off. Nothing here runs a shell.
+//! device's [`Policy`] has it Off; `Ask first` makes it a proposal the person
+//! approves before it runs. Nothing here runs a shell.
 
 pub mod bridge;
 pub mod driver;
 pub mod policy;
+pub mod proposals;
 
 #[cfg(feature = "driver-printer")]
 pub mod printer;
 
 pub use bridge::{Bridge, BridgeHandle};
 pub use driver::{Driver, DriverError, Registry};
-pub use policy::{Decision, DefaultPolicy, Policy};
+pub use policy::{Decision, DefaultPolicy, Policy, Setting, StoredPolicy};
+pub use proposals::{Outcome, Proposal, ProposalEvent, ProposalListener, Proposals};
 
 /// Every driver this build ships, registered.
 pub fn default_registry() -> Registry {

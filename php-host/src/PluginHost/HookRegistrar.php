@@ -98,7 +98,7 @@ final class HookRegistrar
     {
         return function (array $data, array $context = []) use ($pluginName, $callback): array {
             try {
-                $result = $callback($data, $context);
+                $result = CurrentPlugin::run($pluginName, static fn () => $callback($data, $context));
 
                 return is_array($result) ? $result : $data;
             } catch (HookVetoException $e) {
@@ -121,7 +121,7 @@ final class HookRegistrar
     {
         return function (array $data, array $context = []) use ($pluginName, $callback): void {
             try {
-                $callback($data, $context);
+                CurrentPlugin::run($pluginName, static fn () => $callback($data, $context));
             } catch (HookVetoException $e) {
                 error_log("[php-host] plugin '{$pluginName}' threw a veto from an observe-only listener on \"{$e->eventName()}\"; ignored.");
             } catch (\Throwable $e) {

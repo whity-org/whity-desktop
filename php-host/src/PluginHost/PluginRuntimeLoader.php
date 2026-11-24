@@ -265,12 +265,16 @@ final class PluginRuntimeLoader
                     );
                 }
 
+                // The handler runs as its plugin (CurrentPlugin), so host
+                // services can bind what they hand out to the caller.
+                $pluginName = $loadedPlugin->plugin->getName();
+                $handler = $route['handler'];
                 $router->register(
                     $route['method'],
                     $route['path'],
-                    $route['handler'],
+                    static fn ($request, array $params) => CurrentPlugin::run($pluginName, static fn () => $handler($request, $params)),
                     $route['requiredRole'] ?? null,
-                    null,
+                    $pluginName,
                     $permission,
                     $route['schema'] ?? null,
                 );

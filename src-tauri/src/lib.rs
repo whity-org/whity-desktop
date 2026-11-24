@@ -494,7 +494,10 @@ pub fn run() {
             restore_tool,
             php::php_host_status,
             php::php_request,
-            php::native_bridge_grants
+            php::hardware_settings,
+            php::set_hardware_decision,
+            php::hardware_proposals,
+            php::answer_hardware_proposal
         ])
         .build(tauri::generate_context!())
         .expect("error while building whity-agent")

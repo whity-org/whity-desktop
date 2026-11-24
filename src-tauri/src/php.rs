@@ -6,7 +6,9 @@
 use std::sync::Mutex;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
-use whity_drivers::{Bridge, BridgeHandle, DefaultPolicy};
+use whity_drivers::{
+    Bridge, BridgeHandle, Decision, Proposal, ProposalEvent, Setting, StoredPolicy,
+};
 use whity_php_host::sidecar::simplify_path;
 use whity_php_host::{proxy, Layout, PhpStatusEvent, Sidecar};
 
@@ -17,6 +19,8 @@ pub struct PhpHost {
     last: Mutex<PhpStatusEvent>,
     /// The hardware bridge plugins call; `None` only when it failed to bind.
     bridge: Option<BridgeHandle>,
+    /// Off / Ask first / Allowed per plugin and capability, kept on this device.
+    policy: std::sync::Arc<StoredPolicy>,
 }
 
 impl PhpHost {
@@ -25,6 +29,14 @@ impl PhpHost {
             sidecar.shutdown();
         }
     }
+}
+
+/// The device's hardware policy file, beside the PHP data.
+fn policy_path(app: &AppHandle) -> std::path::PathBuf {
+    app.path()
+        .app_data_dir()
+        .map(|d| d.join("php").join("hardware-policy.json"))
+        .unwrap_or_else(|_| std::path::PathBuf::from("hardware-policy.json"))
 }
 
 /// Where the runtime is for this build: `frankenphp/` and `php-host/` next to
@@ -62,9 +74,17 @@ pub fn start(app: &AppHandle) -> PhpHost {
         }
     };
     // The bridge first: the host gets its address and secret in its environment.
+    let policy = std::sync::Arc::new(StoredPolicy::load(&policy_path(app)));
+    let on_proposal = {
+        let app = app.clone();
+        std::sync::Arc::new(move |event: ProposalEvent| {
+            let _ = app.emit("hardware:proposal", event);
+        })
+    };
     let bridge = match Bridge::spawn(
         std::sync::Arc::new(whity_drivers::default_registry()),
-        std::sync::Arc::new(DefaultPolicy),
+        policy.clone(),
+        on_proposal,
     ) {
         Ok(bridge) => Some(bridge),
         Err(reason) => {
@@ -89,6 +109,7 @@ pub fn start(app: &AppHandle) -> PhpHost {
         sidecar,
         last: Mutex::new(snapshot),
         bridge,
+        policy,
     }
 }
 
@@ -120,12 +141,49 @@ pub async fn php_request(
     proxy::forward(port, &method, &path, body).await
 }
 
-/// The plugins holding a hardware handle and the capabilities each declared,
-/// for the settings screen to come.
+/// One row per plugin and declared capability: what the device allows now.
 #[tauri::command]
-pub fn native_bridge_grants(php: tauri::State<'_, PhpHost>) -> Vec<(String, Vec<String>)> {
-    php.bridge
+pub fn hardware_settings(php: tauri::State<'_, PhpHost>) -> Vec<Setting> {
+    let grants = php
+        .bridge
         .as_ref()
         .map(BridgeHandle::grants)
+        .unwrap_or_default();
+    php.policy.settings_for(&grants)
+}
+
+/// Set Off / Ask first / Allowed for one plugin and capability on this device;
+/// `None` goes back to the floor. Takes effect on the plugin's next call.
+#[tauri::command]
+pub fn set_hardware_decision(
+    php: tauri::State<'_, PhpHost>,
+    plugin: String,
+    capability: String,
+    decision: Option<Decision>,
+) -> Result<Vec<Setting>, String> {
+    php.policy.set(&plugin, &capability, decision)?;
+    Ok(hardware_settings(php))
+}
+
+/// Proposals waiting for the person, and recent answers.
+#[tauri::command]
+pub fn hardware_proposals(php: tauri::State<'_, PhpHost>) -> Vec<Proposal> {
+    php.bridge
+        .as_ref()
+        .map(|b| b.proposals().list())
         .unwrap_or_default()
+}
+
+/// The person's answer to a proposal. Approval runs the hardware call now.
+#[tauri::command]
+pub fn answer_hardware_proposal(
+    php: tauri::State<'_, PhpHost>,
+    id: String,
+    approve: bool,
+) -> Result<Proposal, String> {
+    php.bridge
+        .as_ref()
+        .ok_or("the hardware bridge is not running")?
+        .proposals()
+        .answer(&id, approve)
 }

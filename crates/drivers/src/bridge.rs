@@ -7,18 +7,22 @@
 //!   Minting again replaces every earlier handle: a restarted host starts
 //!   clean.
 //! - A plugin, through the client the host built for it, with its handle:
-//!   `POST /native/<capability>` with the operation's arguments as JSON.
+//!   `POST /native/<capability>` with the operation's arguments as JSON, and
+//!   `GET /native/proposals/<id>` for the outcome of a call the device policy
+//!   turned into a proposal.
 //!
 //! A call is refused with a code the PHP side can act on: `unauthorized` (no
 //! or unknown handle), `not_declared` (the plugin never asked for that
-//! capability), `off` and `ask_first` (the device's policy), `unsupported`
-//! (no driver in this build), `invalid_args`, `failed`.
+//! capability), `off` (the device's policy), `unsupported` (no driver in this
+//! build), `invalid_args`, `failed`. `ask_first` is not a refusal: it comes
+//! with a `proposalId`, and the call runs when the person approves.
 //!
 //! Loopback only, one thread, `tiny_http`: a handful of calls a minute from
 //! one process on the same machine.
 
 use crate::driver::{DriverError, Registry};
 use crate::policy::{Decision, Policy};
+use crate::proposals::{ProposalListener, Proposals};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -32,12 +36,13 @@ pub const HOST_SECRET_HEADER: &str = "X-Whity-Host-Secret";
 pub const HANDLE_HEADER: &str = "X-Whity-Handle";
 const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
 
-/// What the app keeps: where the bridge listens and the secret the PHP host
-/// gets in its environment (`WHITY_NATIVE_BRIDGE_URL`, `WHITY_NATIVE_BRIDGE_SECRET`).
+/// What the app keeps: where the bridge listens, the secret the PHP host
+/// gets in its environment, the grants and the proposals.
 pub struct BridgeHandle {
     pub port: u16,
     pub host_secret: String,
     grants: Arc<Mutex<HashMap<String, Grant>>>,
+    proposals: Arc<Proposals>,
 }
 
 impl BridgeHandle {
@@ -46,7 +51,7 @@ impl BridgeHandle {
     }
 
     /// The plugins that hold a handle right now, with their declared
-    /// capabilities, for a settings screen. Handles themselves stay inside.
+    /// capabilities, for the settings screen. Handles themselves stay inside.
     pub fn grants(&self) -> Vec<(String, Vec<String>)> {
         let grants = self.grants.lock().unwrap();
         let mut out: Vec<(String, Vec<String>)> = grants
@@ -59,6 +64,11 @@ impl BridgeHandle {
             .collect();
         out.sort();
         out
+    }
+
+    /// The proposals waiting for the person, and recent answers.
+    pub fn proposals(&self) -> &Proposals {
+        &self.proposals
     }
 
     /// The environment the PHP host needs to find and call the bridge.
@@ -103,8 +113,12 @@ pub struct Bridge;
 
 impl Bridge {
     /// Bind a loopback port, make the host secret, and serve on a thread for
-    /// the life of the process.
-    pub fn spawn(registry: Arc<Registry>, policy: Arc<dyn Policy>) -> Result<BridgeHandle, String> {
+    /// the life of the process. `on_proposal` hears proposals open and close.
+    pub fn spawn(
+        registry: Arc<Registry>,
+        policy: Arc<dyn Policy>,
+        on_proposal: ProposalListener,
+    ) -> Result<BridgeHandle, String> {
         let server = Server::http("127.0.0.1:0")
             .map_err(|e| format!("failed to bind the native bridge: {e}"))?;
         let port = server
@@ -114,11 +128,13 @@ impl Bridge {
             .port();
         let host_secret = random_token();
         let grants: Arc<Mutex<HashMap<String, Grant>>> = Arc::new(Mutex::new(HashMap::new()));
+        let proposals = Arc::new(Proposals::new(registry.clone(), on_proposal));
         let state = State {
             registry,
             policy,
             host_secret: host_secret.clone(),
             grants: grants.clone(),
+            proposals: proposals.clone(),
         };
         thread::Builder::new()
             .name("whity-native-bridge".into())
@@ -132,6 +148,7 @@ impl Bridge {
             port,
             host_secret,
             grants,
+            proposals,
         })
     }
 }
@@ -141,6 +158,7 @@ struct State {
     policy: Arc<dyn Policy>,
     host_secret: String,
     grants: Arc<Mutex<HashMap<String, Grant>>>,
+    proposals: Arc<Proposals>,
 }
 
 impl State {
@@ -153,6 +171,10 @@ impl State {
         };
         match (method, url.as_str()) {
             (Method::Post, "/handles") => self.mint(request, &body),
+            (Method::Get, path) if path.starts_with("/native/proposals/") => {
+                let id = path["/native/proposals/".len()..].to_string();
+                self.outcome(request, &id)
+            }
             (Method::Post, path) if path.starts_with("/native/") => {
                 let capability = path["/native/".len()..].to_string();
                 self.call(request, &capability, &body)
@@ -226,10 +248,13 @@ impl State {
         );
     }
 
+    fn grant_for(&self, request: &Request) -> Option<Grant> {
+        header(request, HANDLE_HEADER)
+            .and_then(|h| self.grants.lock().unwrap().get(h.as_str()).cloned())
+    }
+
     fn call(&self, request: Request, capability: &str, body: &[u8]) {
-        let grant = header(&request, HANDLE_HEADER)
-            .and_then(|h| self.grants.lock().unwrap().get(h.as_str()).cloned());
-        let Some(grant) = grant else {
+        let Some(grant) = self.grant_for(&request) else {
             return refuse(
                 request,
                 401,
@@ -244,28 +269,6 @@ impl State {
                 "not_declared",
                 &format!("{} did not declare {capability}", grant.plugin),
             );
-        }
-        match self.policy.decide(&grant.plugin, capability) {
-            Decision::Allowed => {}
-            Decision::Off => {
-                return refuse(
-                    request,
-                    403,
-                    "off",
-                    &format!("{capability} is off for {} on this device", grant.plugin),
-                )
-            }
-            Decision::AskFirst => {
-                return refuse(
-                    request,
-                    403,
-                    "ask_first",
-                    &format!(
-                        "{capability} needs the person's approval for {}",
-                        grant.plugin
-                    ),
-                )
-            }
         }
         let args: Value = if body.is_empty() {
             Value::Null
@@ -282,11 +285,67 @@ impl State {
                 }
             }
         };
+        match self.policy.decide(&grant.plugin, capability) {
+            Decision::Allowed => {}
+            Decision::Off => {
+                return refuse(
+                    request,
+                    403,
+                    "off",
+                    &format!("{capability} is off for {} on this device", grant.plugin),
+                )
+            }
+            Decision::AskFirst => {
+                if !self.registry.offers(capability) {
+                    return refuse(
+                        request,
+                        404,
+                        "unsupported",
+                        &format!("no driver offers {capability}"),
+                    );
+                }
+                let id = self.proposals.open(&grant.plugin, capability, args);
+                return respond(
+                    request,
+                    202,
+                    &json!({
+                        "ok": false,
+                        "code": "ask_first",
+                        "error": format!("{capability} needs the person's approval for {}", grant.plugin),
+                        "proposalId": id,
+                    }),
+                );
+            }
+        }
         match self.registry.dispatch(capability, args) {
             Ok(result) => respond(request, 200, &json!({ "ok": true, "result": result })),
             Err(DriverError::Unsupported(m)) => refuse(request, 404, "unsupported", &m),
             Err(DriverError::InvalidArgs(m)) => refuse(request, 400, "invalid_args", &m),
             Err(DriverError::Failed(m)) => refuse(request, 500, "failed", &m),
+        }
+    }
+
+    fn outcome(&self, request: Request, id: &str) {
+        let Some(grant) = self.grant_for(&request) else {
+            return refuse(
+                request,
+                401,
+                "unauthorized",
+                "the plugin handle is missing or unknown",
+            );
+        };
+        match self.proposals.outcome_for(&grant.plugin, id) {
+            Some(outcome) => respond(
+                request,
+                200,
+                &json!({ "ok": true, "proposalId": id, "outcome": outcome }),
+            ),
+            None => refuse(
+                request,
+                404,
+                "not_found",
+                "no such proposal for this plugin",
+            ),
         }
     }
 }
@@ -334,7 +393,7 @@ fn refuse(request: Request, status: u16, code: &str, message: &str) {
     );
 }
 
-fn random_token() -> String {
+pub(crate) fn random_token() -> String {
     let mut bytes = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut bytes);
     bytes.iter().map(|b| format!("{b:02x}")).collect()
@@ -351,6 +410,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 mod tests {
     use super::*;
     use crate::driver::tests::EchoDriver;
+    use crate::proposals::Outcome;
     use std::io::Write;
     use std::net::TcpStream;
 
@@ -368,13 +428,22 @@ mod tests {
     fn bridge() -> BridgeHandle {
         let mut registry = Registry::new();
         registry.add(Box::new(EchoDriver));
-        Bridge::spawn(Arc::new(registry), Arc::new(AllowEcho)).unwrap()
+        Bridge::spawn(Arc::new(registry), Arc::new(AllowEcho), Arc::new(|_| {})).unwrap()
     }
 
     /// A tiny HTTP/1.1 client: the bridge's own callers are curl and tests.
-    fn post(port: u16, path: &str, headers: &[(&str, &str)], body: &str) -> (u16, Value) {
+    fn send(
+        port: u16,
+        method: &str,
+        path: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> (u16, Value) {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        let mut request = format!("POST {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\nContent-Length: {}\r\n", body.len());
+        let mut request = format!(
+            "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\nContent-Length: {}\r\n",
+            body.len()
+        );
         for (name, value) in headers {
             request.push_str(&format!("{name}: {value}\r\n"));
         }
@@ -389,6 +458,10 @@ mod tests {
             status,
             serde_json::from_str(json_body).unwrap_or(Value::Null),
         )
+    }
+
+    fn post(port: u16, path: &str, headers: &[(&str, &str)], body: &str) -> (u16, Value) {
+        send(port, "POST", path, headers, body)
     }
 
     fn mint(bridge: &BridgeHandle, plugins: Value) -> Value {
@@ -462,15 +535,6 @@ mod tests {
 
         let (status, body) = post(
             bridge.port,
-            "/native/echo.fail",
-            &[(HANDLE_HEADER, probe)],
-            "{}",
-        );
-        assert_eq!(status, 403);
-        assert_eq!(body["code"], "ask_first");
-
-        let (status, body) = post(
-            bridge.port,
             "/native/scanner.scan",
             &[(HANDLE_HEADER, probe)],
             "{}",
@@ -495,6 +559,71 @@ mod tests {
         );
         assert_eq!(status, 400);
         assert_eq!(body["code"], "invalid_args");
+    }
+
+    #[test]
+    fn ask_first_opens_a_proposal_that_runs_on_approval() {
+        let bridge = bridge();
+        let minted = mint(
+            &bridge,
+            json!([{ "name": "Probe", "capabilities": ["echo.fail"] }, { "name": "Other", "capabilities": [] }]),
+        );
+        let probe = minted["handles"]["Probe"].as_str().unwrap();
+        let other = minted["handles"]["Other"].as_str().unwrap();
+
+        let (status, body) = post(
+            bridge.port,
+            "/native/echo.fail",
+            &[(HANDLE_HEADER, probe)],
+            r#"{"x":1}"#,
+        );
+        assert_eq!(status, 202, "{body}");
+        assert_eq!(body["code"], "ask_first");
+        let id = body["proposalId"].as_str().unwrap().to_string();
+
+        let (status, body) = send(
+            bridge.port,
+            "GET",
+            &format!("/native/proposals/{id}"),
+            &[(HANDLE_HEADER, probe)],
+            "",
+        );
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["outcome"]["state"], "waiting");
+
+        // Another plugin cannot read it.
+        let (status, _) = send(
+            bridge.port,
+            "GET",
+            &format!("/native/proposals/{id}"),
+            &[(HANDLE_HEADER, other)],
+            "",
+        );
+        assert_eq!(status, 404);
+
+        let waiting = bridge.proposals().list();
+        assert_eq!(waiting.len(), 1);
+        assert_eq!(waiting[0].plugin, "Probe");
+        assert_eq!(waiting[0].args, json!({"x": 1}));
+
+        let answered = bridge.proposals().answer(&id, true).unwrap();
+        assert_eq!(
+            answered.outcome,
+            Outcome::Failed {
+                error: DriverError::Failed("as asked".into())
+            }
+        );
+
+        let (status, body) = send(
+            bridge.port,
+            "GET",
+            &format!("/native/proposals/{id}"),
+            &[(HANDLE_HEADER, probe)],
+            "",
+        );
+        assert_eq!(status, 200);
+        assert_eq!(body["outcome"]["state"], "failed");
+        assert_eq!(body["outcome"]["error"]["code"], "failed");
     }
 
     #[test]

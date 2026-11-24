@@ -27,9 +27,11 @@ final class NativeBridgeClient
      *
      * @param array<string, mixed> $args
      * @return array<string, mixed>
-     * @throws NativeBridgeRefusedException When the bridge says no: the plugin
-     *         did not declare the capability, the device has it off or on
-     *         "ask first", no driver offers it, or the arguments are wrong.
+     * @throws NativeBridgeRefusedException When the call did not run: the
+     *         plugin did not declare the capability, the device has it off,
+     *         no driver offers it, or the arguments are wrong. With code
+     *         `ask_first` the call became a proposal: show the person it is
+     *         waiting, and ask {@see proposal()} for the outcome.
      * @throws NativeBridgeUnavailableException When the bridge cannot be reached.
      */
     public function call(string $capability, array $args = []): array
@@ -46,5 +48,29 @@ final class NativeBridgeClient
         $result = $decoded['result'] ?? [];
 
         return is_array($result) ? $result : ['value' => $result];
+    }
+
+    /**
+     * The outcome of a call that became a proposal. `state` is `waiting`,
+     * `done` (with `result`), `failed` (with `error`), `declined` or `expired`.
+     *
+     * @return array<string, mixed>
+     * @throws NativeBridgeRefusedException With `not_found` when the id is not
+     *         one of this plugin's proposals.
+     * @throws NativeBridgeUnavailableException
+     */
+    public function proposal(string $proposalId): array
+    {
+        if (preg_match('/^[a-f0-9]{64}$/', $proposalId) !== 1) {
+            throw new NativeBridgeRefusedException('not_found', 'Not a proposal id', 404);
+        }
+        $decoded = NativeBridgeHttp::getJson(
+            $this->baseUrl . '/native/proposals/' . $proposalId,
+            ['X-Whity-Handle: ' . $this->handle],
+            $this->timeoutSeconds,
+        );
+        $outcome = $decoded['outcome'] ?? [];
+
+        return is_array($outcome) ? $outcome : ['state' => 'waiting'];
     }
 }

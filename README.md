@@ -53,9 +53,15 @@ Plugin PHP reaches them through a loopback bridge: at boot the host asks for
 one handle per loaded plugin, bound to the capabilities that plugin declares
 with `getDesktopCapabilities()` (for example `['printer.print']`), and the
 bridge refuses a call the plugin never declared or one the device has Off.
-Printing is Allowed by default; everything else is Off until the settings
-screen lands ([ADR 0001](docs/adr/0001-whity-desktop-foundations.md), 3a and
-3b). `GET /__whity/native-bridge` on the host shows what each plugin declared.
+What each plugin may do is a device setting, Off / Ask first / Allowed per
+capability (`hardware_settings`, `set_hardware_decision`), kept in
+`hardware-policy.json` beside the PHP data; the floor is printing Allowed and
+everything else Off. Ask first turns the call into a proposal: the bridge
+answers `ask_first` with an id at once, the person approves or declines in
+the app (`hardware_proposals`, `answer_hardware_proposal`), approval runs the
+call, and the plugin asks for the outcome by id. A plugin reaches the bridge
+only as itself: the host knows whose route or hook is running
+([ADR 0001](docs/adr/0001-whity-desktop-foundations.md), 3a and 3b). `GET /__whity/native-bridge` on the host shows what each plugin declared.
 
 End to end, with the real runtime and a fixture plugin:
 `WHITY_PHP_HOST_SMOKE=1 cargo test -p whity-drivers --test e2e -- --ignored`.

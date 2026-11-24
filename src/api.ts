@@ -118,5 +118,46 @@ export interface PhpResponse {
 export const phpRequest = (method: string, path: string, body?: unknown) =>
   invoke<PhpResponse>("php_request", { method, path, body })
 
-/** Plugins holding a hardware handle, each with the capabilities it declared. */
-export const nativeBridgeGrants = () => invoke<[string, string[]][]>("native_bridge_grants")
+/** Off / Ask first / Allowed, Whity's three words for what an agent or a plugin may do. */
+export type Decision = "off" | "ask_first" | "allowed"
+
+/** One plugin's declared capability and what this device allows for it. */
+export interface HardwareSetting {
+  plugin: string
+  capability: string
+  decision: Decision
+  /** True when nothing was set and the decision is the floor (printing allowed, the rest off). */
+  isDefault: boolean
+}
+
+export const hardwareSettings = () => invoke<HardwareSetting[]>("hardware_settings")
+/** `decision` null goes back to the floor. */
+export const setHardwareDecision = (plugin: string, capability: string, decision: Decision | null) =>
+  invoke<HardwareSetting[]>("set_hardware_decision", { plugin, capability, decision })
+
+export type ProposalOutcome =
+  | { state: "waiting" }
+  | { state: "done"; result: unknown }
+  | { state: "failed"; error: { code: string; message: string } }
+  | { state: "declined" }
+  | { state: "expired" }
+
+/** A hardware call a plugin asked for under "Ask first", waiting for the person or answered. */
+export interface HardwareProposal {
+  id: string
+  plugin: string
+  capability: string
+  args: unknown
+  /** Seconds since the Unix epoch. */
+  createdAt: number
+  outcome: ProposalOutcome
+}
+
+/** Arrives as the `hardware:proposal` event too, when a proposal opens or is answered. */
+export type HardwareProposalEvent =
+  | { kind: "opened"; proposal: HardwareProposal }
+  | { kind: "answered"; proposal: HardwareProposal }
+
+export const hardwareProposals = () => invoke<HardwareProposal[]>("hardware_proposals")
+export const answerHardwareProposal = (id: string, approve: boolean) =>
+  invoke<HardwareProposal>("answer_hardware_proposal", { id, approve })
