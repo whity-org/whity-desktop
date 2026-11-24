@@ -19,6 +19,7 @@ import {
 import { Button } from "@whity/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@whity/ui/tabs"
 import { ChatPanel } from "./chat-panel"
+import { HardwarePanel } from "./hardware-panel"
 import { useI18n, type MessageKey } from "./i18n"
 import { ToolsPanel } from "./tools-panel"
 import { UpdateBanner } from "./update-banner"
@@ -105,7 +106,12 @@ export function App() {
         <TabsList>
           <TabsTrigger value="connections">{t("tabs.connections")}</TabsTrigger>
           <TabsTrigger value="chat">{t("tabs.chat")}</TabsTrigger>
+          <TabsTrigger value="hardware">{t("tabs.hardware")}</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="hardware" className="flex flex-col gap-6">
+          <HardwarePanel />
+        </TabsContent>
 
         <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">
           <ChatPanel connections={connections} />
