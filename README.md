@@ -62,7 +62,7 @@ End to end, with the real runtime and a fixture plugin:
 
 ## Develop
 
-You need Node 22, and Rust from `rust-toolchain.toml` (rustup installs it). On Linux, the Tauri system libraries (see `.github/workflows/ci.yml`).
+You need Node 22, and Rust from `rust-toolchain.toml` (rustup installs it). On Linux, the Tauri system libraries and `libcups2-dev` for the printer driver (see `.github/workflows/ci.yml`).
 
 ```bash
 npm install
