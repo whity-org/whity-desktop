@@ -80,7 +80,10 @@ npm run php:setup
 ```
 
 fetches the pinned release for this computer (Windows x64, Linux x64 or macOS
-arm64) and checks it against the digest GitHub publishes for the asset. The
+arm64; `--target <rust triple>` for a cross build) and checks it against the
+digest GitHub publishes for the asset. CI does the same on all three and boots
+the real runtime (`php-runtime` jobs); the release workflow bundles it into the
+installers for the same three targets. The
 plugin SDK is copied beside the host by `npm run dev` and `npm run build`
 (`scripts/copy-sdk.mjs`): from `WHITY_CORE_DIR`, a sibling `../whity-core`
 checkout, or whity-core's `develop` on GitHub. Without the runtime the app

@@ -52,18 +52,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # One entry per FrankenPHP asset the setup script pins (ADR 0001,
+          # decision 6): Windows x64, macOS arm64, Linux x64. Windows arm64 and
+          # Intel Macs wait for a PHP runtime they can run.
           - name: Windows x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             args: --target x86_64-pc-windows-msvc
-          - name: Windows arm64
-            os: windows-latest
-            target: aarch64-pc-windows-msvc
-            args: --target aarch64-pc-windows-msvc
-          - name: macOS universal
+          - name: macOS arm64
             os: macos-latest
-            target: x86_64-apple-darwin,aarch64-apple-darwin
-            args: --target universal-apple-darwin
+            target: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin
           - name: Linux x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -89,9 +88,14 @@ jobs:
           TARGETS: ${{ matrix.target }}
         working-directory: src-tauri
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
       - run: npm ci
+      # The PHP runtime ships inside the installer: the pinned FrankenPHP for
+      # this target, checked against GitHub's digest, staged where
+      # tauri.conf.json bundles it. The plugin SDK copy is made by `npm run
+      # build` (beforeBuildCommand) from whity-core's develop.
+      - name: The pinned FrankenPHP for this target
+        run: node scripts/setup-php-runtime.mjs --target ${{ matrix.target }}
+        shell: bash
 
       # Off until the owner turns OS signing on (decision Q5).
       - name: Prepare Azure Trusted Signing
@@ -130,11 +134,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ needs.check.outputs.tag }}
-          releaseName: Whity Agent ${{ needs.check.outputs.tag }}
+          releaseName: Whity Desktop ${{ needs.check.outputs.tag }}
           releaseBody: |
-            Installing for the first time? Read the [install notes, in English and Arabic](https://github.com/whity-org/whity-agent/blob/main/docs/INSTALL.md). Your computer may warn you, because these builds aren't signed with a paid certificate yet. `SHA256SUMS.txt` lists every file's checksum.
+            Installing for the first time? Read the [install notes, in English and Arabic](https://github.com/whity-org/whity-desktop/blob/main/docs/INSTALL.md). Your computer may warn you, because these builds aren't signed with a paid certificate yet. `SHA256SUMS.txt` lists every file's checksum.
 
-            [ملاحظات التثبيت بالعربية والإنجليزية](https://github.com/whity-org/whity-agent/blob/main/docs/INSTALL.md).
+            [ملاحظات التثبيت بالعربية والإنجليزية](https://github.com/whity-org/whity-desktop/blob/main/docs/INSTALL.md).
           releaseDraft: true
           prerelease: ${{ github.ref_type != 'tag' }}
           includeUpdaterJson: true

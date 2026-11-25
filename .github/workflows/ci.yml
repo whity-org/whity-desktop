@@ -28,14 +28,27 @@ jobs:
       - run: npm test
       - run: npx vite build
 
+  # The workspace on every target the app ships for (ADR 0001, decision 6):
+  # Windows x64, macOS arm64, Linux x64. Format is checked once.
   rust:
-    name: Rust
-    runs-on: ubuntu-latest
+    name: Rust (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       # The toolchain comes from rust-toolchain.toml.
       - run: rustup show active-toolchain
       - name: System libraries for Tauri
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           # libcups2-dev: the printers crate (crates/drivers) links CUPS on Linux.
@@ -43,13 +56,69 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # tauri::generate_context! reads frontendDist at compile time.
       - run: mkdir -p dist
-      # The workspace: the app in src-tauri and the crates under crates/.
+        shell: bash
       - name: Format
+        if: runner.os == 'Linux'
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests
         run: cargo test --workspace
+
+  # The real runtime: the pinned FrankenPHP and the plugin SDK copy are
+  # fetched as a build would, and the ignored tests boot the PHP host, check
+  # the sandbox ini took effect, and drive a fixture plugin through the
+  # hardware bridge. An unverified sidecar and a working one look alike from a
+  # unit test; this is where the difference shows, on every target.
+  php-runtime:
+    name: PHP runtime (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - run: rustup show active-toolchain
+      - name: System libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libcups2-dev
+      - uses: Swatinem/rust-cache@v2
+      - name: The pinned FrankenPHP and the SDK copy
+        run: |
+          node scripts/setup-php-runtime.mjs
+          node scripts/copy-sdk.mjs
+        shell: bash
+      - name: The host boots under the sandbox
+        run: cargo test -p whity-php-host -- --ignored --nocapture
+        env:
+          WHITY_PHP_HOST_SMOKE: "1"
+      - name: A plugin reaches the printer driver through the bridge
+        run: cargo test -p whity-drivers --test e2e -- --ignored --nocapture
+        env:
+          WHITY_PHP_HOST_SMOKE: "1"
+
+  # Branch protection requires a check called "Rust"; the matrix above reports
+  # as "Rust (Windows)" and so on, so this gate keeps that name and passes only
+  # when every target did.
+  rust-gate:
+    name: Rust
+    needs: rust
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.rust.result }}" = success
 
   # The fragments are checked with whity-core's changelog tool, the one copy
   # for every Whity repository, through whity-org/.github (WHIT-1057). A job

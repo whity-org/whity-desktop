@@ -6,6 +6,7 @@
 //   npm run php:setup
 //
 // Pinned, never "latest": a build must not pick up a new runtime by itself.
+// `--target <rust triple>` picks the asset for a cross build (release.yml).
 // Each asset's SHA-256 is the digest GitHub publishes for the release asset,
 // checked here before anything is unpacked. GitHub release assets can be
 // re-uploaded under the same tag, and a changed digest refuses the download:
@@ -23,15 +24,15 @@ const VERSION = '1.14.0'
 const ASSETS = {
   'win32-x64': {
     name: 'frankenphp-windows-x86_64.zip',
-    sha256: 'f599fb251ed1d20a74d0ccc438a7f295d003dc22ae53fd5e7c6808ae3bc20be3',
+    sha256: '5efb54a7ff3b3950458f5c925b633ce0bd6e1f04d67a8684c5922d33fbaf3222',
   },
   'linux-x64': {
     name: 'frankenphp-linux-x86_64',
-    sha256: '5bdc49d7914577c19b4e4748e2f55032f77edc64eeafee76bc3d1d368b6270db',
+    sha256: '3cbe90ea9e5e377a11ed486fd21143d95b639dcae1cc34253804b2e0391e079a',
   },
   'darwin-arm64': {
     name: 'frankenphp-mac-arm64',
-    sha256: 'e0be860076c618f748a8e5794b07e16ab8953429b2835f035d12d08b6ce1adbf',
+    sha256: 'fc5dfe83dc6a00be1a8ca5a3d92a255ba2d42f4cb99cc8aa9b53c227756e186f',
   },
 }
 
@@ -44,12 +45,26 @@ const DROP_FROM_WINDOWS = [
   'php.ini-production', 'README.md', 'license.txt', 'news.txt', 'readme-redist-bins.txt', 'snapshot.txt',
 ]
 
+// A release build names its Rust target (`--target x86_64-pc-windows-msvc`),
+// so a runner stages the runtime for the installer it builds, not for itself.
+const TARGETS = {
+  'x86_64-pc-windows-msvc': 'win32-x64',
+  'x86_64-unknown-linux-gnu': 'linux-x64',
+  'aarch64-apple-darwin': 'darwin-arm64',
+}
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const dest = join(repoRoot, 'src-tauri', 'resources', 'frankenphp')
-const key = `${process.platform}-${process.arch}`
-const asset = ASSETS[key]
+const targetFlag = process.argv.indexOf('--target')
+const target = targetFlag >= 0 ? process.argv[targetFlag + 1] : undefined
+const key = target === undefined ? `${process.platform}-${process.arch}` : TARGETS[target]
+const asset = key === undefined ? undefined : ASSETS[key]
 if (!asset) {
-  console.error(`No FrankenPHP asset is pinned for ${key}. Pinned: ${Object.keys(ASSETS).join(', ')}.`)
+  console.error(
+    target === undefined
+      ? `No FrankenPHP asset is pinned for ${process.platform}-${process.arch}. Pinned: ${Object.keys(ASSETS).join(', ')}.`
+      : `No FrankenPHP asset is pinned for the target ${target}. Known: ${Object.keys(TARGETS).join(', ')}.`,
+  )
   process.exit(1)
 }
 
@@ -96,12 +111,16 @@ if (asset.name.endsWith('.zip')) {
   chmodSync(binary, 0o755)
 }
 
-// The runtime's own php.ini sits beside the binary; the sandbox ini the app
-// writes per device is added through PHP_INI_SCAN_DIR at run time.
-cpSync(join(repoRoot, 'php-host', 'php.ini'), join(dest, 'php.ini'))
-if (!existsSync(join(dest, 'php.ini'))) {
-  console.error('php.ini was not staged')
-  process.exit(1)
+// The Windows release loads its extensions from DLLs named in a php.ini
+// beside the binary. The static Linux and macOS binaries have them built in
+// and need no ini; the sandbox ini the app writes per device reaches every
+// build through PHP_INI_SCAN_DIR at run time.
+if (asset.name.endsWith('.zip')) {
+  cpSync(join(repoRoot, 'php-host', 'php.ini'), join(dest, 'php.ini'))
+  if (!existsSync(join(dest, 'php.ini'))) {
+    console.error('php.ini was not staged')
+    process.exit(1)
+  }
 }
 const staged = readdirSync(dest).length
 console.log(`FrankenPHP v${VERSION} staged at ${dest} (${staged} entries).`)

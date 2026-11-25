@@ -6,9 +6,9 @@ Download the file for your computer from the [latest release](https://github.com
 
 | Your computer | File |
 |---|---|
-| Windows | `Whity Agent_x.y.z_x64-setup.exe`, or `arm64-setup.exe` for an Arm PC. The `.msi` is for IT departments. |
-| macOS | `Whity Agent_x.y.z_universal.dmg` |
-| Linux | `.AppImage`, `.deb` or `.rpm` |
+| Windows | `Whity Agent_x.y.z_x64-setup.exe`. The `.msi` is for IT departments. Arm PCs wait for a PHP runtime they can run. |
+| macOS | `Whity Agent_x.y.z_aarch64.dmg`, for Apple silicon. Intel Macs wait for a PHP runtime they can run. |
+| Linux | `.AppImage`, `.deb` or `.rpm`, for x64 |
 
 ## Why your computer warns you
 
