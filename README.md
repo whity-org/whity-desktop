@@ -20,6 +20,18 @@ Where it is going: [ADR 0001, Whity Desktop foundations](docs/adr/0001-whity-des
 - **In the tray.** One copy runs at a time, closing the window keeps it running, and starting at login is your choice. A `whity-agent://connect?instance=<address>` link only fills in the address (`src-tauri/src/desktop.rs`).
 - **Installers and signed updates.** See [install notes, in English and Arabic](docs/INSTALL.md). OS code signing is off for now; updates are always minisign-signed against the key in `src-tauri/updater.pub`. Releases are built as drafts by `.github/workflows/release.yml` and a person publishes them.
 
+## This computer's plugins
+
+Once connected, the computer runs the same plugins as the workspace
+(`src-tauri/src/plugins.rs`, ADR 0001 decisions 2b, 3a and 4): with the device
+token it reads which plugins the workspace has on and their packaged releases
+(core's `GET /api/v1/plugins` and `/api/v1/desktop-plugins`, WHIT-1420), applies
+the signed revocation list the instance accepted, and `crates/plugins`
+installs, updates or removes to match, verifying every package's attestation
+against the keys pinned in the app first. With no key pinned nothing installs
+and the row says so. Runs after connecting, at every start, and on Sync
+plugins; the PHP host reloads when anything changed.
+
 ## This computer as a device
 
 A Whity ID sign-in opens the workspace's MCP endpoint and nothing else. For
