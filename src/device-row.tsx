@@ -3,16 +3,19 @@ import { Button } from "@whity/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@whity/ui/select"
 import {
   chooseDeviceWorkspace,
+  deviceStatus,
   enrolDevice,
   forgetDevice,
-  deviceStatus,
   listSignInProviders,
+  pluginSyncStatus,
+  syncPlugins,
   type Connection,
   type Device,
   type Membership,
+  type PluginSyncReport,
   type SignInProvider,
 } from "./api"
-import { useI18n } from "./i18n"
+import { useI18n, type MessageKey } from "./i18n"
 
 /** The message key for a plugin sync failure's reason, or the raw reason. */
 export function reasonKey(reason: string): MessageKey | null {
