@@ -109,6 +109,17 @@ jobs:
         env:
           WHITY_PHP_HOST_SMOKE: "1"
 
+  # Branch protection requires a check called "Rust"; the matrix above reports
+  # as "Rust (Windows)" and so on, so this gate keeps that name and passes only
+  # when every target did.
+  rust-gate:
+    name: Rust
+    needs: rust
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.rust.result }}" = success
+
   # The fragments are checked with whity-core's changelog tool, the one copy
   # for every Whity repository, through whity-org/.github (WHIT-1057). A job
   # that calls a shared workflow reports as "<job> / <name>", so the gate below
