@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 # The PHP runtime: FrankenPHP spawned and supervised from Rust (ADR 0001, 2a).
 whity-php-host = { path = "../crates/php-host" }
 whity-drivers = { path = "../crates/drivers" }
+whity-plugins = { path = "../crates/plugins" }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
@@ -30,7 +31,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 # HTTP to the workspace and its authorization server, from Rust only, so no
 # token ever enters the webview. rustls avoids a system OpenSSL.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# `blocking` for the plugin reconcile, which runs on a worker thread.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
 tokio = { version = "1", features = ["net", "time", "io-util", "macros", "rt-multi-thread", "sync", "process", "io-std"] }
 url = "2"
 dirs = "6"

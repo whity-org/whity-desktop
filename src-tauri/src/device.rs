@@ -500,7 +500,7 @@ impl Connections {
     }
 
     /// The workspace's origin, from its MCP resource.
-    fn origin_of(&self, connection: &str) -> Result<Url, String> {
+    pub(crate) fn origin_of(&self, connection: &str) -> Result<Url, String> {
         let (_, resource, _) = self
             .workspace(connection)
             .ok_or("not signed in to that workspace")?;

@@ -29,6 +29,25 @@ impl PhpHost {
             sidecar.shutdown();
         }
     }
+
+    /// Reload the host so it discovers plugins installed since it started.
+    pub fn restart(&self) {
+        if let Some(sidecar) = &self.sidecar {
+            sidecar.restart();
+        }
+    }
+
+    /// Where downloaded plugins are installed, the root the host scans second.
+    pub fn plugins_root(&self) -> Option<std::path::PathBuf> {
+        self.sidecar
+            .as_ref()
+            .map(|s| s.layout().downloaded_plugins_root())
+    }
+
+    /// The directory the PHP data lives in; the trust state file sits beside it.
+    pub fn data_dir(&self) -> Option<std::path::PathBuf> {
+        self.sidecar.as_ref().map(|s| s.layout().data_dir.clone())
+    }
 }
 
 /// The device's hardware policy file, beside the PHP data.

@@ -103,5 +103,20 @@
   "device.noProvider": "لا تقدّم هذه المساحة أي مزوّد لتسجيل الدخول بعد.",
   "device.keychain": "سلسلة مفاتيح حاسوبك غير متاحة، فلم يُحتفظ بالجهاز.",
   "device.revoked": "أُزيل هذا الحاسوب من مساحة العمل. اربطه مجددًا عند الحاجة.",
-  "device.failed": "لم يكتمل الربط: {reason}"
+  "device.failed": "لم يكتمل الربط: {reason}",
+  "plugins.installed": "{count} ملحقات على هذا الحاسوب",
+  "plugins.syncNow": "مزامنة الملحقات",
+  "plugins.syncing": "جارٍ المزامنة…",
+  "plugins.changed": "تغيّر: {list}",
+  "plugins.failed": "{name} {version}: {reason}",
+  "plugins.reason.not_verified:no_keys": "لا يوجد مفتاح توقيع مضمّن في هذا التطبيق بعد",
+  "plugins.reason.not_verified:bad_signature": "التوقيع غير صحيح",
+  "plugins.reason.not_verified:mismatch": "التوقيع لحزمة أخرى",
+  "plugins.reason.not_verified:expired": "انتهت صلاحية التوقيع",
+  "plugins.reason.not_verified:list_stale": "قائمة الإلغاء قديمة",
+  "plugins.reason.not_verified:revoked": "أُلغيت هذه النسخة",
+  "plugins.reason.checksum": "التنزيل لا يطابق الفهرس",
+  "plugins.reason.package": "الحزمة غير آمنة للفتح",
+  "plugins.reason.io": "تعذّر تنزيلها أو كتابتها",
+  "plugins.error": "لم تعمل المزامنة: {reason}"
 }

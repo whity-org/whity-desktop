@@ -14,6 +14,23 @@ import {
 } from "./api"
 import { useI18n } from "./i18n"
 
+/** The message key for a plugin sync failure's reason, or the raw reason. */
+export function reasonKey(reason: string): MessageKey | null {
+  const key = `plugins.reason.${reason}`
+  const known: string[] = [
+    "plugins.reason.not_verified:no_keys",
+    "plugins.reason.not_verified:bad_signature",
+    "plugins.reason.not_verified:mismatch",
+    "plugins.reason.not_verified:expired",
+    "plugins.reason.not_verified:list_stale",
+    "plugins.reason.not_verified:revoked",
+    "plugins.reason.checksum",
+    "plugins.reason.package",
+    "plugins.reason.io",
+  ]
+  return known.includes(key) ? (key as MessageKey) : null
+}
+
 /** Words for the hours an enrolment still works offline. */
 export function hoursLeft(secondsRemaining: number | null): string {
   if (secondsRemaining === null) return "0"
@@ -36,9 +53,24 @@ export function DeviceRow({ connection }: { connection: Connection }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [report, setReport] = useState<PluginSyncReport | null>(null)
+  const [syncing, setSyncing] = useState(false)
+
   useEffect(() => {
     deviceStatus(connection.id).then(setDevice, () => setDevice(null))
+    pluginSyncStatus(connection.id).then(setReport, () => setReport(null))
   }, [connection.id])
+
+  const sync = async () => {
+    setSyncing(true)
+    try {
+      setReport(await syncPlugins(connection.id))
+    } catch (e) {
+      setError(describe(e))
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const describe = (e: unknown) => {
     const code = String(e)
@@ -112,9 +144,34 @@ export function DeviceRow({ connection }: { connection: Connection }) {
             <span>{t("device.connected", { name: device.name })}</span>
             <span>{device.locked ? t("device.locked") : t("device.remaining", { hours: hoursLeft(device.secondsRemaining) })}</span>
           </span>
-          <Button variant="outline" disabled={busy} onClick={disconnect}>
-            {t("device.disconnect")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" disabled={busy || syncing} onClick={sync}>
+              {syncing ? t("plugins.syncing") : t("plugins.syncNow")}
+            </Button>
+            <Button variant="outline" disabled={busy} onClick={disconnect}>
+              {t("device.disconnect")}
+            </Button>
+          </div>
+          {report !== null && (
+            <div className="flex basis-full flex-col gap-1 text-xs text-muted-foreground">
+              {report.error !== null ? (
+                <span>{t("plugins.error", { reason: report.error })}</span>
+              ) : (
+                <>
+                  <span>{t("plugins.installed", { count: String(report.installed) })}</span>
+                  {report.changed.length > 0 && <span>{t("plugins.changed", { list: report.changed.join(", ") })}</span>}
+                  {report.failed.map((f: PluginSyncReport["failed"][number]) => {
+                    const key = reasonKey(f.reason)
+                    return (
+                      <span key={`${f.name}-${f.version}`}>
+                        {t("plugins.failed", { name: f.name, version: f.version, reason: key !== null ? t(key) : f.reason })}
+                      </span>
+                    )
+                  })}
+                </>
+              )}
+            </div>
+          )}
         </>
       ) : memberships !== null ? (
         <>
