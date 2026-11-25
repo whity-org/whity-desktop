@@ -32,6 +32,22 @@ against the keys pinned in the app first. With no key pinned nothing installs
 and the row says so. Runs after connecting, at every start, and on Sync
 plugins; the PHP host reloads when anything changed.
 
+## Plugin data in two places
+
+A plugin that names its syncable resources (SDK 1.173,
+`Contribute\PluginSyncResourcesInterface`) keeps that data on this computer and in
+the workspace, and the app carries changes both ways (`crates/sync`,
+`src-tauri/src/sync.rs`, ADR 0001 decision 4). The PHP host lists what the
+loaded plugins declare at `GET /__whity/sync-resources`; the relay reads each
+end's changes feed and writes the other end through the SDK's sync wire
+contract, with that end's last-known version as the base, so a row both ends
+changed is refused and parked with both versions for a person. Nothing is
+overwritten and there is no last-write-wins. The relay runs after the plugin
+sync at start and every ten minutes, and on Sync now; its own memory (what
+each end has for a row, where each feed was read up to, the parked rows) is one
+SQLite file per workspace beside the PHP data. Resolving a parked row field by
+field is the next step.
+
 ## This computer as a device
 
 A Whity ID sign-in opens the workspace's MCP endpoint and nothing else. For

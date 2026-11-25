@@ -14,6 +14,7 @@ mod oauth;
 mod php;
 mod plugins;
 mod store;
+mod sync;
 mod tools;
 mod updates;
 
@@ -229,6 +230,58 @@ fn plugin_sync_status(
     reports: tauri::State<'_, plugins::SyncReports>,
     connection: String,
 ) -> Option<plugins::SyncReport> {
+    reports.0.lock().unwrap().get(&connection).cloned()
+}
+
+/// Carry plugin data both ways between this computer's PHP host and the
+/// workspace (ADR 0001, decision 4). Runs on a worker thread; the device
+/// token stays in Rust.
+async fn relay_data(
+    connections: &Connections,
+    php: &php::PhpHost,
+    reports: &sync::DataSyncReports,
+    connection: &str,
+) -> Result<sync::DataSyncReport, String> {
+    let outcome = async {
+        let token = connections.device_access_token(connection).await?;
+        let origin = connections.origin_of(connection)?;
+        let port = php.port().ok_or("the PHP runtime isn't running")?;
+        let data = php.data_dir().ok_or("the PHP runtime isn't running")?;
+        let connection_id = connection.to_string();
+        tokio::task::spawn_blocking(move || sync::run(&connection_id, origin, token, port, &data))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+    .await;
+    let report = match outcome {
+        Ok(report) => report,
+        Err(error) => sync::DataSyncReport::failed(connection, error),
+    };
+    reports
+        .0
+        .lock()
+        .unwrap()
+        .insert(connection.to_string(), report.clone());
+    Ok(report)
+}
+
+/// Sync this computer's plugin data with the workspace now.
+#[tauri::command]
+async fn sync_data(
+    connections: tauri::State<'_, Connections>,
+    php: tauri::State<'_, php::PhpHost>,
+    reports: tauri::State<'_, sync::DataSyncReports>,
+    connection: String,
+) -> Result<sync::DataSyncReport, String> {
+    relay_data(&connections, &php, &reports, &connection).await
+}
+
+/// The last data sync for a workspace, if one ran since the app started.
+#[tauri::command]
+fn data_sync_status(
+    reports: tauri::State<'_, sync::DataSyncReports>,
+    connection: String,
+) -> Option<sync::DataSyncReport> {
     reports.0.lock().unwrap().get(&connection).cloned()
 }
 
@@ -615,20 +668,29 @@ pub fn run() {
             });
             app.manage(php::start(app.handle()));
             app.manage(plugins::SyncReports::default());
-            // Each enrolled workspace's plugins are brought up to date at start,
-            // once the PHP host has had a moment to come up.
+            app.manage(sync::DataSyncReports::default());
+            // Each enrolled workspace's plugins and plugin data are brought up
+            // to date at start, once the PHP host has had a moment to come up,
+            // and then every ten minutes. A locked enrolment waits for a sign-in.
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(Duration::from_secs(5)).await;
-                let connections = handle.state::<Connections>();
-                let php = handle.state::<php::PhpHost>();
-                let reports = handle.state::<plugins::SyncReports>();
-                for device in connections.devices() {
-                    if device.locked {
-                        continue;
+                let mut wait = Duration::from_secs(5);
+                loop {
+                    tokio::time::sleep(wait).await;
+                    wait = Duration::from_secs(600);
+                    let connections = handle.state::<Connections>();
+                    let php = handle.state::<php::PhpHost>();
+                    let reports = handle.state::<plugins::SyncReports>();
+                    let data_reports = handle.state::<sync::DataSyncReports>();
+                    for device in connections.devices() {
+                        if device.locked {
+                            continue;
+                        }
+                        let _ = reconcile_plugins(&connections, &php, &reports, &device.connection)
+                            .await;
+                        let _ =
+                            relay_data(&connections, &php, &data_reports, &device.connection).await;
                     }
-                    let _ =
-                        reconcile_plugins(&connections, &php, &reports, &device.connection).await;
                 }
             });
             Ok(())
@@ -663,6 +725,8 @@ pub fn run() {
             forget_device,
             sync_plugins,
             plugin_sync_status,
+            sync_data,
+            data_sync_status,
             php::php_host_status,
             php::php_request,
             php::hardware_settings,

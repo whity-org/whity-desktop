@@ -105,7 +105,7 @@
   "device.revoked": "أُزيل هذا الحاسوب من مساحة العمل. اربطه مجددًا عند الحاجة.",
   "device.failed": "لم يكتمل الربط: {reason}",
   "plugins.installed": "{count} ملحقات على هذا الحاسوب",
-  "plugins.syncNow": "مزامنة الملحقات",
+  "plugins.syncNow": "مزامنة الآن",
   "plugins.syncing": "جارٍ المزامنة…",
   "plugins.changed": "تغيّر: {list}",
   "plugins.failed": "{name} {version}: {reason}",
@@ -118,5 +118,10 @@
   "plugins.reason.checksum": "التنزيل لا يطابق الفهرس",
   "plugins.reason.package": "الحزمة غير آمنة للفتح",
   "plugins.reason.io": "تعذّر تنزيلها أو كتابتها",
-  "plugins.error": "لم تعمل المزامنة: {reason}"
+  "plugins.error": "لم تعمل المزامنة: {reason}",
+  "data.none": "لا يحتفظ أي ملحق هنا ببيانات على هذا الحاسوب بعد",
+  "data.summary": "{resources} أنواع من البيانات محفوظة على هذا الحاسوب أيضًا؛ نُقل {relayed} تغييرًا",
+  "data.parked": "{count} تغييرات تحتاج إليك: غُيّرت على هذا الحاسوب وفي مساحة العمل معًا",
+  "data.failed": "تعذّر النقل: {reason}",
+  "data.error": "لم تعمل مزامنة البيانات: {reason}"
 }

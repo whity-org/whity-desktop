@@ -21,6 +21,7 @@ tauri-build = { version = "2", features = [] }
 whity-php-host = { path = "../crates/php-host" }
 whity-drivers = { path = "../crates/drivers" }
 whity-plugins = { path = "../crates/plugins" }
+whity-sync = { path = "../crates/sync" }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"

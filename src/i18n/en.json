@@ -105,7 +105,7 @@
   "device.revoked": "This computer was removed from the workspace. Connect it again when you need it.",
   "device.failed": "Connecting didn't finish: {reason}",
   "plugins.installed": "{count} plugins on this computer",
-  "plugins.syncNow": "Sync plugins",
+  "plugins.syncNow": "Sync now",
   "plugins.syncing": "Syncing…",
   "plugins.changed": "Changed: {list}",
   "plugins.failed": "{name} {version}: {reason}",
@@ -118,5 +118,10 @@
   "plugins.reason.checksum": "the download didn't match the catalogue",
   "plugins.reason.package": "the package isn't safe to unpack",
   "plugins.reason.io": "couldn't be downloaded or written",
-  "plugins.error": "Sync didn't run: {reason}"
+  "plugins.error": "Sync didn't run: {reason}",
+  "data.none": "No plugin here keeps data on this computer yet",
+  "data.summary": "{resources} kinds of data kept on this computer too; {relayed} changes carried over",
+  "data.parked": "{count} changes need you: both this computer and the workspace changed them",
+  "data.failed": "Couldn't carry over: {reason}",
+  "data.error": "Data sync didn't run: {reason}"
 }

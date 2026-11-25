@@ -3,13 +3,16 @@ import { Button } from "@whity/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@whity/ui/select"
 import {
   chooseDeviceWorkspace,
+  dataSyncStatus,
   deviceStatus,
   enrolDevice,
   forgetDevice,
   listSignInProviders,
   pluginSyncStatus,
+  syncData,
   syncPlugins,
   type Connection,
+  type DataSyncReport,
   type Device,
   type Membership,
   type PluginSyncReport,
@@ -32,6 +35,11 @@ export function reasonKey(reason: string): MessageKey | null {
     "plugins.reason.io",
   ]
   return known.includes(key) ? (key as MessageKey) : null
+}
+
+/** The line that sums up a data sync: nothing here syncs, or how much moved. */
+export function dataSummaryKey(report: Pick<DataSyncReport, "resources">): MessageKey {
+  return report.resources === 0 ? "data.none" : "data.summary"
 }
 
 /** Words for the hours an enrolment still works offline. */
@@ -57,17 +65,21 @@ export function DeviceRow({ connection }: { connection: Connection }) {
   const [error, setError] = useState<string | null>(null)
 
   const [report, setReport] = useState<PluginSyncReport | null>(null)
+  const [data, setData] = useState<DataSyncReport | null>(null)
   const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     deviceStatus(connection.id).then(setDevice, () => setDevice(null))
     pluginSyncStatus(connection.id).then(setReport, () => setReport(null))
+    dataSyncStatus(connection.id).then(setData, () => setData(null))
   }, [connection.id])
 
+  /** Plugins first, so new ones are there before their data moves. */
   const sync = async () => {
     setSyncing(true)
     try {
       setReport(await syncPlugins(connection.id))
+      setData(await syncData(connection.id))
     } catch (e) {
       setError(describe(e))
     } finally {
@@ -171,6 +183,21 @@ export function DeviceRow({ connection }: { connection: Connection }) {
                       </span>
                     )
                   })}
+                </>
+              )}
+            </div>
+          )}
+          {data !== null && (
+            <div className="flex basis-full flex-col gap-1 text-xs text-muted-foreground">
+              {data.error !== null ? (
+                <span>{t("data.error", { reason: data.error })}</span>
+              ) : (
+                <>
+                  <span>{t(dataSummaryKey(data), { resources: String(data.resources), relayed: String(data.relayed) })}</span>
+                  {data.parked > 0 && <span>{t("data.parked", { count: String(data.parked) })}</span>}
+                  {data.failures.map((reason: string) => (
+                    <span key={reason}>{t("data.failed", { reason })}</span>
+                  ))}
                 </>
               )}
             </div>
