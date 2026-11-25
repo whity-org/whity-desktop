@@ -45,8 +45,13 @@ changed is refused and parked with both versions for a person. Nothing is
 overwritten and there is no last-write-wins. The relay runs after the plugin
 sync at start and every ten minutes, and on Sync now; its own memory (what
 each end has for a row, where each feed was read up to, the parked rows) is one
-SQLite file per workspace beside the PHP data. Resolving a parked row field by
-field is the next step.
+SQLite file per workspace beside the PHP data. A parked row is settled by a
+person from the device row (Review): both ends live, each differing field
+takes this computer's value, the workspace's or one written there, and the
+merged row goes to both ends with the parked versions as bases, so a change
+made meanwhile parks it again instead of being overwritten; one end deleted it,
+the person deletes it in both places or keeps the changed row as a new record
+(`crates/sync/src/resolve.rs`, `src/conflict-card.tsx`).
 
 ## This computer as a device
 

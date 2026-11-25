@@ -10,7 +10,7 @@
 //! never opens either database, and it never invents a field. What it keeps
 //! for itself is in [`store`]: per row and resource, the id and version each
 //! end last had; per resource and end, the feed cursor; and the rows both
-//! ends changed, parked for a person to resolve field by field.
+//! ends changed, parked for a person to resolve field by field ([`resolve`]).
 //!
 //! Which resources: those the loaded plugins declare through SDK 1.173's
 //! `Contribute\PluginSyncResourcesInterface`, read from the PHP host at
@@ -25,11 +25,13 @@
 
 pub mod discover;
 pub mod relay;
+pub mod resolve;
 pub mod store;
 pub mod wire;
 
 pub use discover::discover;
 pub use relay::{relay_cycle, Resource, Summary};
+pub use resolve::{resolve, Choice, Resolved};
 pub use store::{Conflict, End, Store};
 pub use wire::{Leg, Row};
 

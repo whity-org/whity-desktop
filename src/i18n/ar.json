@@ -123,5 +123,18 @@
   "data.summary": "{resources} أنواع من البيانات محفوظة على هذا الحاسوب أيضًا؛ نُقل {relayed} تغييرًا",
   "data.parked": "{count} تغييرات تحتاج إليك: غُيّرت على هذا الحاسوب وفي مساحة العمل معًا",
   "data.failed": "تعذّر النقل: {reason}",
-  "data.error": "لم تعمل مزامنة البيانات: {reason}"
+  "data.error": "لم تعمل مزامنة البيانات: {reason}",
+  "conflicts.review": "مراجعة",
+  "conflicts.none": "لا شيء ينتظرك",
+  "conflicts.untitled": "سجل",
+  "conflicts.here": "هذا الحاسوب",
+  "conflicts.there": "مساحة العمل",
+  "conflicts.own": "اكتبه بنفسك",
+  "conflicts.resolve": "استخدم هذا في المكانين",
+  "conflicts.deletedHere": "حُذف على هذا الحاسوب وغُيّر في مساحة العمل.",
+  "conflicts.deletedThere": "حُذف في مساحة العمل وغُيّر على هذا الحاسوب.",
+  "conflicts.deleteBoth": "احذفه في المكانين",
+  "conflicts.keepAsNew": "احتفظ به سجلًا جديدًا",
+  "conflicts.changedAgain": "تغيّر مجددًا في هذه الأثناء. لم يُستبدل شيء؛ هذه هي النسخ الجديدة.",
+  "conflicts.failed": "تعذّرت التسوية: {reason}"
 }

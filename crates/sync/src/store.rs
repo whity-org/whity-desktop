@@ -236,6 +236,13 @@ impl Store {
             .map_err(db)
     }
 
+    pub fn conflict(&self, resource: &str, client_uuid: &str) -> Result<Option<Conflict>, String> {
+        Ok(self
+            .conflicts()?
+            .into_iter()
+            .find(|c| c.resource == resource && c.client_uuid == client_uuid))
+    }
+
     pub fn conflicts(&self) -> Result<Vec<Conflict>, String> {
         let mut statement = self
             .conn

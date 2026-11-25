@@ -17,6 +17,8 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # each end's changes feed was read up to, and the rows both ends changed.
 # Bundled so the three targets build the same SQLite.
 rusqlite = { version = "0.32", features = ["bundled"] }
+# A new clientUuid for a row kept as a copy.
+rand = "0.8"
 
 [dev-dependencies]
 tiny_http = "0.12"

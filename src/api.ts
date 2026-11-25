@@ -231,3 +231,30 @@ export interface DataSyncReport {
 
 export const syncData = (connection: string) => invoke<DataSyncReport>("sync_data", { connection })
 export const dataSyncStatus = (connection: string) => invoke<DataSyncReport | null>("data_sync_status", { connection })
+
+/** One field a parked row has differently on each end. */
+export interface SyncConflictField {
+  name: string
+  local: unknown
+  remote: unknown
+}
+
+/** A row both this computer and the workspace changed, waiting for a person. */
+export interface SyncConflict {
+  /** The resource path as the plugin registered it. */
+  resource: string
+  clientUuid: string
+  /** Seconds since the Unix epoch. */
+  detectedAt: number
+  title: string | null
+  localDeleted: boolean
+  remoteDeleted: boolean
+  fields: SyncConflictField[]
+}
+
+/** What the person decided for a parked row. */
+export type SyncChoice = { kind: "fields"; fields: Record<string, unknown> } | { kind: "delete_both" } | { kind: "keep_as_new" }
+
+export const listSyncConflicts = (connection: string) => invoke<SyncConflict[]>("list_sync_conflicts", { connection })
+export const resolveSyncConflict = (connection: string, resource: string, clientUuid: string, choice: SyncChoice) =>
+  invoke<"done" | "changed_again">("resolve_sync_conflict", { connection, resource, clientUuid, choice })
