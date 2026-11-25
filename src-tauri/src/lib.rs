@@ -7,6 +7,7 @@ mod chat;
 mod config_writer;
 mod connections;
 mod desktop;
+mod device;
 mod linking;
 mod loopback;
 mod oauth;
@@ -84,6 +85,66 @@ async fn sign_in_agent(
 fn sign_out(connections: tauri::State<'_, Connections>, id: String) -> Result<(), String> {
     connections.update_state(|state| state.links.retain(|l| l.connection != id))?;
     connections.sign_out(&id)
+}
+
+/// The sign-in providers a workspace offers, for enrolling this computer.
+#[tauri::command]
+async fn list_sign_in_providers(
+    connections: tauri::State<'_, Connections>,
+    connection: String,
+) -> Result<Vec<device::Provider>, String> {
+    connections.sign_in_providers(&connection).await
+}
+
+/// Enrol this computer with the workspace's core, in the browser (ADR 0001, 5).
+#[tauri::command]
+async fn enrol_device(
+    app: tauri::AppHandle,
+    connections: tauri::State<'_, Connections>,
+    connection: String,
+    provider: String,
+) -> Result<device::Enrolment, String> {
+    connections
+        .enrol_device(&connection, &provider, |url| {
+            app.opener()
+                .open_url(url.as_str(), None::<&str>)
+                .map_err(|e| e.to_string())
+        })
+        .await
+}
+
+/// The workspace to enrol in, when the person belongs to several.
+#[tauri::command]
+async fn choose_device_workspace(
+    connections: tauri::State<'_, Connections>,
+    connection: String,
+    tenant_id: i64,
+) -> Result<device::DeviceView, String> {
+    connections.choose_workspace(&connection, tenant_id).await
+}
+
+/// This computer's enrolment in each workspace, with the offline lock as of now.
+#[tauri::command]
+fn list_devices(connections: tauri::State<'_, Connections>) -> Vec<device::DeviceView> {
+    connections.devices()
+}
+
+/// This computer's enrolment in one workspace, or none.
+#[tauri::command]
+fn device_status(
+    connections: tauri::State<'_, Connections>,
+    connection: String,
+) -> Option<device::DeviceView> {
+    connections.device(&connection)
+}
+
+/// Take this computer out of a workspace's device list and forget its credential.
+#[tauri::command]
+async fn forget_device(
+    connections: tauri::State<'_, Connections>,
+    connection: String,
+) -> Result<(), String> {
+    connections.forget_device(&connection).await
 }
 
 /// The AI tools found on this computer, and the workspaces each is connected to.
@@ -492,6 +553,12 @@ pub fn run() {
             connect_tool,
             disconnect_tool,
             restore_tool,
+            list_sign_in_providers,
+            enrol_device,
+            choose_device_workspace,
+            list_devices,
+            device_status,
+            forget_device,
             php::php_host_status,
             php::php_request,
             php::hardware_settings,

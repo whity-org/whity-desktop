@@ -44,6 +44,27 @@ pub struct State {
     /// added and can take it out or put a backup back (WHIT-823).
     #[serde(default)]
     pub links: Vec<Link>,
+    /// This computer as a device of each workspace's core (ADR 0001, decision
+    /// 5). The device credential is in the keychain; this is the rest.
+    #[serde(default)]
+    pub devices: Vec<Device>,
+}
+
+/// This computer's enrolment in one workspace. No secrets: the credential
+/// lives in the keychain under [`device_account`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Device {
+    pub connection: String,
+    /// The device's id in the workspace's device list.
+    pub id: i64,
+    pub name: String,
+    pub email: Option<String>,
+    pub tenant_id: Option<i64>,
+    /// Unix seconds of the last sign-in that reached core, for the offline lock.
+    pub last_online_auth_at: i64,
+    /// The instance's `auth.desktop_login_max_hours`, in seconds, as core last said.
+    pub max_login_seconds: Option<i64>,
+    pub credential_expires_at: Option<String>,
 }
 
 /// One tool connected to one workspace. No secrets: names, paths and hashes.
@@ -66,6 +87,11 @@ pub struct Link {
 pub fn connection_id(resource: &str) -> String {
     let digest = Sha256::digest(resource.as_bytes());
     digest[..8].iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Where the device credential of a workspace lives in the keychain.
+pub fn device_account(connection_id: &str) -> String {
+    format!("device:{connection_id}")
 }
 
 pub fn keychain_account(connection_id: &str) -> String {

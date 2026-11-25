@@ -90,5 +90,18 @@
   "hardware.failed": "لم ينجح: {reason}",
   "hardware.declined": "مرفوض",
   "hardware.expired": "انتهت مدته",
-  "hardware.details": "التفاصيل"
+  "hardware.details": "التفاصيل",
+  "device.connect": "ربط هذا الحاسوب",
+  "device.connecting": "أكمل تسجيل الدخول في المتصفح…",
+  "device.connected": "هذا الحاسوب مرتبط باسم {name}",
+  "device.locked": "سجّل الدخول مجددًا: بقي هذا الحاسوب بلا اتصال مدة طويلة",
+  "device.remaining": "يعمل دون اتصال {hours} ساعة أخرى",
+  "device.disconnect": "فصل",
+  "device.chooseWorkspace": "إلى أي مساحة عمل ينتمي هذا الحاسوب؟",
+  "device.useWorkspace": "استخدام هذه المساحة",
+  "device.provider": "تسجيل الدخول عبر",
+  "device.noProvider": "لا تقدّم هذه المساحة أي مزوّد لتسجيل الدخول بعد.",
+  "device.keychain": "سلسلة مفاتيح حاسوبك غير متاحة، فلم يُحتفظ بالجهاز.",
+  "device.revoked": "أُزيل هذا الحاسوب من مساحة العمل. اربطه مجددًا عند الحاجة.",
+  "device.failed": "لم يكتمل الربط: {reason}"
 }

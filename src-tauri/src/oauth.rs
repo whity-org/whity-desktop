@@ -220,9 +220,14 @@ pub struct Pkce {
 }
 
 impl Pkce {
+    /// The S256 challenge of a verifier, as RFC 7636 spells it.
+    pub fn challenge_of(verifier: &str) -> String {
+        URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
+    }
+
     pub fn new() -> Self {
         let verifier = random_token();
-        let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
+        let challenge = Self::challenge_of(&verifier);
         Self {
             verifier,
             challenge,

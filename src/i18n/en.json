@@ -90,5 +90,18 @@
   "hardware.failed": "Didn't work: {reason}",
   "hardware.declined": "Declined",
   "hardware.expired": "Expired",
-  "hardware.details": "Details"
+  "hardware.details": "Details",
+  "device.connect": "Connect this computer",
+  "device.connecting": "Finish signing in in the browser…",
+  "device.connected": "This computer is connected as {name}",
+  "device.locked": "Sign in again: this computer has been offline too long",
+  "device.remaining": "Works offline for {hours} more hours",
+  "device.disconnect": "Disconnect",
+  "device.chooseWorkspace": "Which workspace should this computer belong to?",
+  "device.useWorkspace": "Use this workspace",
+  "device.provider": "Sign in with",
+  "device.noProvider": "This workspace offers no sign-in provider yet.",
+  "device.keychain": "Your computer's keychain isn't available, so the device couldn't be kept.",
+  "device.revoked": "This computer was removed from the workspace. Connect it again when you need it.",
+  "device.failed": "Connecting didn't finish: {reason}"
 }
