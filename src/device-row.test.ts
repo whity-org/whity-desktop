@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { hoursLeft, reasonKey } from "./device-row"
+import { dataSummaryKey, hoursLeft, reasonKey } from "./device-row"
 
 describe("hoursLeft", () => {
   it("rounds the remaining offline window down to whole hours", () => {
@@ -7,6 +7,13 @@ describe("hoursLeft", () => {
     expect(hoursLeft(59)).toBe("0")
     expect(hoursLeft(null)).toBe("0")
     expect(hoursLeft(-5)).toBe("0")
+  })
+})
+
+describe("dataSummaryKey", () => {
+  it("says nothing syncs here until a plugin declares a resource", () => {
+    expect(dataSummaryKey({ resources: 0 })).toBe("data.none")
+    expect(dataSummaryKey({ resources: 2 })).toBe("data.summary")
   })
 })
 

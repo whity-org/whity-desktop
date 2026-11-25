@@ -162,6 +162,15 @@ class Router
     }
 
     /**
+     * Where a registered path is served: the version prefix inserted after
+     * the first segment, as {@see register()} does.
+     */
+    public function servedPath(string $path): string
+    {
+        return $this->versionPrefix($path);
+    }
+
+    /**
      * Inject the version prefix into a path after its first path segment.
      *
      * The version prefix is inserted after the first slash-delimited segment so

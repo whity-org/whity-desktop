@@ -197,6 +197,14 @@ $handle = static function () use ($router, $offlineTenantId, $loader, $rbacGate,
             return;
         }
 
+        // What the loaded plugins keep in two places (SDK 1.173): the app's
+        // relay reads this list and syncs each resource with the workspace.
+        if ($request->getMethod() === 'GET' && $request->getPath() === '/__whity/sync-resources') {
+            Response::json(['data' => $loader->syncResources($router)])->send();
+
+            return;
+        }
+
         // WC-plugin-block-renderer: an installed plugin's declared UI features
         // (screen:'blocks' today), permission-filtered for this device's
         // profile — see Whity\Api\FrontendFeaturesHandler. Infrastructure

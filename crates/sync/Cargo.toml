@@ -1,0 +1,23 @@
+[package]
+name = "whity-sync"
+version = "0.1.0"
+description = "Two-way sync of plugin data between the device's PHP host and the workspace: the sync wire contract, the relay with per-row state and per-end cursors, and the conflicts parked for a person (ADR 0001, decision 4)."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Blocking: a relay runs on a worker thread, never on the UI's, and the PHP
+# host end is loopback.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+# The relay's own memory: which id and version each end has for a row, where
+# each end's changes feed was read up to, and the rows both ends changed.
+# Bundled so the three targets build the same SQLite.
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[dev-dependencies]
+tiny_http = "0.12"
+tempfile = "3"

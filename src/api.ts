@@ -213,3 +213,21 @@ export interface PluginSyncReport {
 
 export const syncPlugins = (connection: string) => invoke<PluginSyncReport>("sync_plugins", { connection })
 export const pluginSyncStatus = (connection: string) => invoke<PluginSyncReport | null>("plugin_sync_status", { connection })
+
+/** What the last relay of plugin data between this computer and the workspace did. */
+export interface DataSyncReport {
+  connection: string
+  /** Seconds since the Unix epoch. */
+  at: number
+  /** Resources the plugins here keep in two places. */
+  resources: number
+  /** Rows carried to the other end this time. */
+  relayed: number
+  /** Rows waiting for a person because both ends changed them. */
+  parked: number
+  failures: string[]
+  error: string | null
+}
+
+export const syncData = (connection: string) => invoke<DataSyncReport>("sync_data", { connection })
+export const dataSyncStatus = (connection: string) => invoke<DataSyncReport | null>("data_sync_status", { connection })

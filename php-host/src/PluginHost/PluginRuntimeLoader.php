@@ -193,6 +193,58 @@ final class PluginRuntimeLoader
     }
 
     /**
+     * The resources Whity Desktop keeps in two places (ADR 0001, decision 4):
+     * what each loaded plugin declares through SDK 1.173's
+     * `Contribute\PluginSyncResourcesInterface`, checked against the plugin's own
+     * routes. The method is looked up by name, like the native bridge does,
+     * because the SDK copy beside this host may predate the interface. A
+     * declaration that is not a `/api/...` path with a GET (the changes feed)
+     * and a POST (create) behind it is dropped with a logged reason; a
+     * declaration that throws drops that plugin's list.
+     *
+     * @return list<array{plugin: string, path: string, routePath: string}>
+     */
+    public function syncResources(Router $router): array
+    {
+        $out = [];
+        foreach ($this->loaded as $loadedPlugin) {
+            $plugin = $loadedPlugin->plugin;
+            if (!method_exists($plugin, 'getSyncResources')) {
+                continue;
+            }
+            $name = $plugin->getName();
+            try {
+                /** @var mixed $declared */
+                $declared = $plugin->getSyncResources();
+            } catch (\Throwable $e) {
+                error_log("[php-host] {$name}: getSyncResources() threw " . $e::class . ": {$e->getMessage()}; no data of this plugin syncs");
+                continue;
+            }
+            if (!is_array($declared)) {
+                error_log("[php-host] {$name}: getSyncResources() must return a list of paths; no data of this plugin syncs");
+                continue;
+            }
+            $served = [];
+            foreach ($plugin->getRoutes() as $route) {
+                $served[($route['method'] ?? '') . ' ' . ($route['path'] ?? '')] = true;
+            }
+            foreach ($declared as $path) {
+                if (!is_string($path) || preg_match('#^/api/[a-z0-9][a-z0-9/_-]*$#', $path) !== 1) {
+                    error_log("[php-host] {$name}: sync resource " . json_encode($path) . " is not an /api/... path; dropped");
+                    continue;
+                }
+                if (!isset($served['GET ' . $path]) || !isset($served['POST ' . $path])) {
+                    error_log("[php-host] {$name}: sync resource {$path} has no GET and POST route behind it; dropped");
+                    continue;
+                }
+                $out[] = ['plugin' => $name, 'path' => $path, 'routePath' => $router->servedPath($path)];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * @return list<array{fqcn: string, name: string, reason: string}>
      */
     public function getQuarantined(): array

@@ -48,6 +48,14 @@ impl PhpHost {
     pub fn data_dir(&self) -> Option<std::path::PathBuf> {
         self.sidecar.as_ref().map(|s| s.layout().data_dir.clone())
     }
+
+    /// The loopback port the host answers on, once it is up.
+    pub fn port(&self) -> Option<u16> {
+        self.sidecar
+            .as_ref()
+            .filter(|s| s.is_ready())
+            .map(|s| s.port())
+    }
 }
 
 /// The device's hardware policy file, beside the PHP data.
