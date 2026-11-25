@@ -285,6 +285,46 @@ fn data_sync_status(
     reports.0.lock().unwrap().get(&connection).cloned()
 }
 
+/// The rows both this computer and the workspace changed, waiting for a person.
+#[tauri::command]
+fn list_sync_conflicts(
+    php: tauri::State<'_, php::PhpHost>,
+    connection: String,
+) -> Result<Vec<sync::ConflictView>, String> {
+    let data = php.data_dir().ok_or("the PHP runtime isn't running")?;
+    sync::list_conflicts(&data, &connection)
+}
+
+/// Settle one parked row the way the person decided, on both ends.
+#[tauri::command]
+async fn resolve_sync_conflict(
+    connections: tauri::State<'_, Connections>,
+    php: tauri::State<'_, php::PhpHost>,
+    connection: String,
+    resource: String,
+    client_uuid: String,
+    choice: sync::ChoiceInput,
+) -> Result<&'static str, String> {
+    let token = connections.device_access_token(&connection).await?;
+    let origin = connections.origin_of(&connection)?;
+    let port = php.port().ok_or("the PHP runtime isn't running")?;
+    let data = php.data_dir().ok_or("the PHP runtime isn't running")?;
+    tokio::task::spawn_blocking(move || {
+        sync::resolve(
+            &connection,
+            origin,
+            token,
+            port,
+            &data,
+            &resource,
+            &client_uuid,
+            choice.into(),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The AI tools found on this computer, and the workspaces each is connected to.
 #[tauri::command]
 fn list_tools(
@@ -727,6 +767,8 @@ pub fn run() {
             plugin_sync_status,
             sync_data,
             data_sync_status,
+            list_sync_conflicts,
+            resolve_sync_conflict,
             php::php_host_status,
             php::php_request,
             php::hardware_settings,

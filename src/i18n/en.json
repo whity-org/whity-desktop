@@ -123,5 +123,18 @@
   "data.summary": "{resources} kinds of data kept on this computer too; {relayed} changes carried over",
   "data.parked": "{count} changes need you: both this computer and the workspace changed them",
   "data.failed": "Couldn't carry over: {reason}",
-  "data.error": "Data sync didn't run: {reason}"
+  "data.error": "Data sync didn't run: {reason}",
+  "conflicts.review": "Review",
+  "conflicts.none": "Nothing is waiting for you",
+  "conflicts.untitled": "A record",
+  "conflicts.here": "This computer",
+  "conflicts.there": "The workspace",
+  "conflicts.own": "Write it yourself",
+  "conflicts.resolve": "Use this in both places",
+  "conflicts.deletedHere": "Deleted on this computer, changed in the workspace.",
+  "conflicts.deletedThere": "Deleted in the workspace, changed on this computer.",
+  "conflicts.deleteBoth": "Delete in both places",
+  "conflicts.keepAsNew": "Keep it as a new record",
+  "conflicts.changedAgain": "It changed again meanwhile. Nothing was overwritten; here are the new versions.",
+  "conflicts.failed": "Couldn't settle it: {reason}"
 }

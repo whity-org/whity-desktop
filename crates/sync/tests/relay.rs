@@ -468,3 +468,148 @@ fn a_resource_the_workspace_does_not_serve_fails_alone() {
     );
     assert!(summary.failures[0].contains("Glossary"));
 }
+
+#[test]
+fn settling_the_fields_writes_the_merged_row_to_both_ends() {
+    let w = World::new();
+    w.device.insert("u1", "Bread");
+    w.cycle();
+    w.device.rename("u1", "Mine");
+    w.workspace.rename("u1", "Theirs");
+    w.cycle();
+    assert_eq!(w.store.conflict_count().unwrap(), 1);
+
+    let mut chosen = Map::new();
+    chosen.insert("name".into(), Value::String("Agreed".into()));
+    let outcome = whity_sync::resolve(
+        &w.store,
+        &w.client,
+        &w.device.leg(),
+        &w.workspace.leg(),
+        &w.resources[0],
+        "u1",
+        whity_sync::Choice::Fields(chosen),
+    )
+    .unwrap();
+    assert_eq!(outcome, whity_sync::Resolved::Done);
+    assert_eq!(w.device.row("u1").unwrap().domain["name"], "Agreed");
+    assert_eq!(w.workspace.row("u1").unwrap().domain["name"], "Agreed");
+    assert_eq!(w.store.conflict_count().unwrap(), 0);
+    assert_eq!(
+        w.cycle().relayed,
+        0,
+        "the settled row is known on both ends and does not travel again"
+    );
+}
+
+#[test]
+fn a_change_made_meanwhile_parks_the_row_again_instead_of_being_overwritten() {
+    let w = World::new();
+    w.device.insert("u1", "Bread");
+    w.cycle();
+    w.device.rename("u1", "Mine");
+    w.workspace.rename("u1", "Theirs");
+    w.cycle();
+    w.workspace.rename("u1", "Theirs, again");
+
+    let mut chosen = Map::new();
+    chosen.insert("name".into(), Value::String("Agreed".into()));
+    let outcome = whity_sync::resolve(
+        &w.store,
+        &w.client,
+        &w.device.leg(),
+        &w.workspace.leg(),
+        &w.resources[0],
+        "u1",
+        whity_sync::Choice::Fields(chosen),
+    )
+    .unwrap();
+    assert_eq!(outcome, whity_sync::Resolved::ChangedAgain);
+    assert_eq!(
+        w.workspace.row("u1").unwrap().domain["name"],
+        "Theirs, again",
+        "the newer change stands"
+    );
+    let parked = w.store.conflicts().unwrap();
+    assert_eq!(parked.len(), 1);
+    assert_eq!(
+        parked[0].remote.domain["name"], "Theirs, again",
+        "parked with the fresh version"
+    );
+    assert_eq!(
+        parked[0].local.domain["name"], "Agreed",
+        "this computer took the settled row"
+    );
+}
+
+#[test]
+fn a_row_deleted_here_and_changed_there_is_deleted_on_both_or_kept_as_new() {
+    let w = World::new();
+    w.device.insert("u1", "Bread");
+    w.cycle();
+    w.device.delete("u1");
+    w.workspace.rename("u1", "Theirs");
+    let summary = w.cycle();
+    assert!(summary.conflicts >= 1, "{summary:?}");
+    assert!(
+        !w.workspace.row("u1").unwrap().deleted,
+        "the deletion did not win on its own"
+    );
+
+    let fields_refused = whity_sync::resolve(
+        &w.store,
+        &w.client,
+        &w.device.leg(),
+        &w.workspace.leg(),
+        &w.resources[0],
+        "u1",
+        whity_sync::Choice::Fields(Map::new()),
+    );
+    assert!(
+        fields_refused.is_err(),
+        "a deleted row has no fields to settle"
+    );
+
+    let outcome = whity_sync::resolve(
+        &w.store,
+        &w.client,
+        &w.device.leg(),
+        &w.workspace.leg(),
+        &w.resources[0],
+        "u1",
+        whity_sync::Choice::DeleteBoth,
+    )
+    .unwrap();
+    assert_eq!(outcome, whity_sync::Resolved::Done);
+    assert!(w.workspace.row("u1").unwrap().deleted);
+    assert_eq!(w.store.conflict_count().unwrap(), 0);
+    assert_eq!(w.cycle().relayed, 0);
+
+    // The other way: keep the changed row as a new record.
+    let w = World::new();
+    w.device.insert("u1", "Bread");
+    w.cycle();
+    w.workspace.delete("u1");
+    w.device.rename("u1", "Mine");
+    w.cycle();
+    let outcome = whity_sync::resolve(
+        &w.store,
+        &w.client,
+        &w.device.leg(),
+        &w.workspace.leg(),
+        &w.resources[0],
+        "u1",
+        whity_sync::Choice::KeepAsNew,
+    )
+    .unwrap();
+    assert_eq!(outcome, whity_sync::Resolved::Done);
+    assert!(
+        w.device.row("u1").unwrap().deleted,
+        "the original follows the deletion"
+    );
+    assert_eq!(w.device.count(), 2, "and a copy stands beside it");
+    let copied = w.cycle();
+    assert_eq!(copied.relayed, 1, "{copied:?}");
+    assert_eq!(w.workspace.count(), 2, "the copy reached the workspace");
+    assert_eq!(w.store.conflict_count().unwrap(), 0);
+}

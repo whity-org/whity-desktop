@@ -8,7 +8,9 @@ import {
   enrolDevice,
   forgetDevice,
   listSignInProviders,
+  listSyncConflicts,
   pluginSyncStatus,
+  resolveSyncConflict,
   syncData,
   syncPlugins,
   type Connection,
@@ -17,7 +19,10 @@ import {
   type Membership,
   type PluginSyncReport,
   type SignInProvider,
+  type SyncChoice,
+  type SyncConflict,
 } from "./api"
+import { ConflictCard } from "./conflict-card"
 import { useI18n, type MessageKey } from "./i18n"
 
 /** The message key for a plugin sync failure's reason, or the raw reason. */
@@ -67,6 +72,9 @@ export function DeviceRow({ connection }: { connection: Connection }) {
   const [report, setReport] = useState<PluginSyncReport | null>(null)
   const [data, setData] = useState<DataSyncReport | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [conflicts, setConflicts] = useState<SyncConflict[] | null>(null)
+  const [settling, setSettling] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     deviceStatus(connection.id).then(setDevice, () => setDevice(null))
@@ -84,6 +92,31 @@ export function DeviceRow({ connection }: { connection: Connection }) {
       setError(describe(e))
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const review = async () => {
+    setNotice(null)
+    try {
+      setConflicts(await listSyncConflicts(connection.id))
+    } catch (e) {
+      setError(describe(e))
+    }
+  }
+
+  const settle = async (conflict: SyncConflict, choice: SyncChoice) => {
+    setSettling(true)
+    setNotice(null)
+    try {
+      const outcome = await resolveSyncConflict(connection.id, conflict.resource, conflict.clientUuid, choice)
+      if (outcome === "changed_again") setNotice(t("conflicts.changedAgain"))
+      const left = await listSyncConflicts(connection.id)
+      setConflicts(left)
+      setData((current) => (current === null ? current : { ...current, parked: left.length }))
+    } catch (e) {
+      setNotice(t("conflicts.failed", { reason: String(e) }))
+    } finally {
+      setSettling(false)
     }
   }
 
@@ -187,6 +220,15 @@ export function DeviceRow({ connection }: { connection: Connection }) {
               )}
             </div>
           )}
+          {conflicts !== null && (
+            <div className="flex basis-full flex-col gap-2">
+              {conflicts.length === 0 && <span className="text-xs text-muted-foreground">{t("conflicts.none")}</span>}
+              {conflicts.map((conflict) => (
+                <ConflictCard key={`${conflict.resource}:${conflict.clientUuid}`} conflict={conflict} busy={settling} onResolve={(choice) => void settle(conflict, choice)} />
+              ))}
+              {notice !== null && <span className="text-xs text-muted-foreground">{notice}</span>}
+            </div>
+          )}
           {data !== null && (
             <div className="flex basis-full flex-col gap-1 text-xs text-muted-foreground">
               {data.error !== null ? (
@@ -194,7 +236,14 @@ export function DeviceRow({ connection }: { connection: Connection }) {
               ) : (
                 <>
                   <span>{t(dataSummaryKey(data), { resources: String(data.resources), relayed: String(data.relayed) })}</span>
-                  {data.parked > 0 && <span>{t("data.parked", { count: String(data.parked) })}</span>}
+                  {data.parked > 0 && (
+                    <span className="flex flex-wrap items-center gap-2">
+                      {t("data.parked", { count: String(data.parked) })}
+                      <Button variant="outline" size="sm" disabled={settling} onClick={review}>
+                        {t("conflicts.review")}
+                      </Button>
+                    </span>
+                  )}
                   {data.failures.map((reason: string) => (
                     <span key={reason}>{t("data.failed", { reason })}</span>
                   ))}
