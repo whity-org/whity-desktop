@@ -24,15 +24,15 @@ const VERSION = '1.14.0'
 const ASSETS = {
   'win32-x64': {
     name: 'frankenphp-windows-x86_64.zip',
-    sha256: 'f599fb251ed1d20a74d0ccc438a7f295d003dc22ae53fd5e7c6808ae3bc20be3',
+    sha256: '5efb54a7ff3b3950458f5c925b633ce0bd6e1f04d67a8684c5922d33fbaf3222',
   },
   'linux-x64': {
     name: 'frankenphp-linux-x86_64',
-    sha256: '5bdc49d7914577c19b4e4748e2f55032f77edc64eeafee76bc3d1d368b6270db',
+    sha256: '3cbe90ea9e5e377a11ed486fd21143d95b639dcae1cc34253804b2e0391e079a',
   },
   'darwin-arm64': {
     name: 'frankenphp-mac-arm64',
-    sha256: 'e0be860076c618f748a8e5794b07e16ab8953429b2835f035d12d08b6ce1adbf',
+    sha256: 'fc5dfe83dc6a00be1a8ca5a3d92a255ba2d42f4cb99cc8aa9b53c227756e186f',
   },
 }
 
