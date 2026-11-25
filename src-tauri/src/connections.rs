@@ -73,16 +73,19 @@ pub struct ConnectionView {
 }
 
 pub struct Connections {
-    http: reqwest::Client,
+    pub(crate) http: reqwest::Client,
     file: StateFile,
-    secrets: Box<dyn SecretStore>,
+    pub(crate) secrets: Box<dyn SecretStore>,
     state: Mutex<State>,
     /// Connections that last until the app closes (no refresh token, or no keychain).
     session_only: Mutex<Vec<Connection>>,
     /// Access tokens and when each stops being usable, by connection id. Never
     /// written anywhere.
     access: Mutex<HashMap<String, (Tokens, Option<Instant>)>>,
-    window: Duration,
+    pub(crate) window: Duration,
+    /// A workspace choice core is waiting for during a device enrolment
+    /// (`device.rs`), by connection id. The selection token never leaves here.
+    pub(crate) pending: Mutex<HashMap<String, crate::device::Pending>>,
 }
 
 impl Connections {
@@ -100,7 +103,14 @@ impl Connections {
             session_only: Mutex::new(Vec::new()),
             access: Mutex::new(HashMap::new()),
             window: SIGN_IN_WINDOW,
+            pending: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Tests only: put a secret in the store as if the keychain held it.
+    #[cfg(test)]
+    pub(crate) fn secrets_set_for_test(&self, account: &str, secret: &str) {
+        self.secrets.set(account, secret).unwrap();
     }
 
     pub fn list(&self) -> Vec<ConnectionView> {

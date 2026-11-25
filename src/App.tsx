@@ -19,6 +19,7 @@ import {
 import { Button } from "@whity/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@whity/ui/tabs"
 import { ChatPanel } from "./chat-panel"
+import { DeviceRow } from "./device-row"
 import { HardwarePanel } from "./hardware-panel"
 import { useI18n, type MessageKey } from "./i18n"
 import { ToolsPanel } from "./tools-panel"
@@ -127,7 +128,7 @@ export function App() {
         ) : (
           <ul className="flex flex-col gap-2">
             {connections.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-card p-4">
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card p-4">
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="truncate font-medium">
                     {connectionName(c)}
@@ -142,6 +143,7 @@ export function App() {
                   </span>
                 </div>
                 <Button variant="outline" onClick={() => remove(c.id)}>{t("connections.signOut")}</Button>
+                {c.agent === null && <DeviceRow connection={c} />}
               </li>
             ))}
           </ul>

@@ -20,6 +20,21 @@ Where it is going: [ADR 0001, Whity Desktop foundations](docs/adr/0001-whity-des
 - **In the tray.** One copy runs at a time, closing the window keeps it running, and starting at login is your choice. A `whity-agent://connect?instance=<address>` link only fills in the address (`src-tauri/src/desktop.rs`).
 - **Installers and signed updates.** See [install notes, in English and Arabic](docs/INSTALL.md). OS code signing is off for now; updates are always minisign-signed against the key in `src-tauri/updater.pub`. Releases are built as drafts by `.github/workflows/release.yml` and a person publishes them.
 
+## This computer as a device
+
+A Whity ID sign-in opens the workspace's MCP endpoint and nothing else. For
+core's REST (sync, the plugin catalogue, core-served updates) the app enrols
+the computer as a device (`src-tauri/src/device.rs`; [ADR 0001](docs/adr/0001-whity-desktop-foundations.md),
+decision 5; whity-core WHIT-1406): "Connect this computer" runs core's native
+sign-in, in which the browser signs you in through the workspace's identity
+provider and core sends a one-time code back to a loopback listener here; the
+code and the PKCE verifier become a token-mode session, which enrols the
+device. The device credential goes to the OS keychain and nowhere else;
+`state.json` keeps the device's id and the last online sign-in for the offline
+lock (`auth.desktop_login_max_hours`). A short-lived access token is fetched
+from the credential when something needs it and kept in memory. Disconnect
+revokes the device in the workspace and forgets the credential.
+
 ## The PHP runtime
 
 Whity plugins are PHP. The app ships [FrankenPHP](https://frankenphp.dev) and
