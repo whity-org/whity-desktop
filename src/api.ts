@@ -161,3 +161,40 @@ export type HardwareProposalEvent =
 export const hardwareProposals = () => invoke<HardwareProposal[]>("hardware_proposals")
 export const answerHardwareProposal = (id: string, approve: boolean) =>
   invoke<HardwareProposal>("answer_hardware_proposal", { id, approve })
+
+/** A sign-in provider the workspace's core offers. */
+export interface SignInProvider {
+  provider_key: string
+  display_name: string
+}
+
+/** This computer as a device of a workspace's core. The credential stays in Rust and the keychain. */
+export interface Device {
+  connection: string
+  id: number
+  name: string
+  email: string | null
+  tenantId: number | null
+  /** Unix seconds of the last sign-in that reached core. */
+  lastOnlineAuthAt: number
+  /** True when too long has passed since that sign-in; core must be reached again. */
+  locked: boolean
+  lockReason: string | null
+  secondsRemaining: number | null
+}
+
+export interface Membership {
+  tenantId: number
+  name: string | null
+}
+
+export type Enrolment = { outcome: "enrolled"; device: Device } | { outcome: "chooseWorkspace"; memberships: Membership[] }
+
+export const listSignInProviders = (connection: string) => invoke<SignInProvider[]>("list_sign_in_providers", { connection })
+/** Signs in through the workspace's identity provider in the browser and enrols this computer. */
+export const enrolDevice = (connection: string, provider: string) => invoke<Enrolment>("enrol_device", { connection, provider })
+export const chooseDeviceWorkspace = (connection: string, tenantId: number) =>
+  invoke<Device>("choose_device_workspace", { connection, tenantId })
+export const listDevices = () => invoke<Device[]>("list_devices")
+export const deviceStatus = (connection: string) => invoke<Device | null>("device_status", { connection })
+export const forgetDevice = (connection: string) => invoke<void>("forget_device", { connection })
