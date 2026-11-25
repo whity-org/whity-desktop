@@ -198,3 +198,18 @@ export const chooseDeviceWorkspace = (connection: string, tenantId: number) =>
 export const listDevices = () => invoke<Device[]>("list_devices")
 export const deviceStatus = (connection: string) => invoke<Device | null>("device_status", { connection })
 export const forgetDevice = (connection: string) => invoke<void>("forget_device", { connection })
+
+/** What the last plugin sync did for a workspace: what came in, what failed and why. */
+export interface PluginSyncReport {
+  connection: string
+  /** Seconds since the Unix epoch. */
+  at: number
+  installed: number
+  changed: string[]
+  failed: { name: string; version: string; reason: string }[]
+  /** Set when the sync itself could not run. */
+  error: string | null
+}
+
+export const syncPlugins = (connection: string) => invoke<PluginSyncReport>("sync_plugins", { connection })
+export const pluginSyncStatus = (connection: string) => invoke<PluginSyncReport | null>("plugin_sync_status", { connection })

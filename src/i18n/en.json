@@ -103,5 +103,20 @@
   "device.noProvider": "This workspace offers no sign-in provider yet.",
   "device.keychain": "Your computer's keychain isn't available, so the device couldn't be kept.",
   "device.revoked": "This computer was removed from the workspace. Connect it again when you need it.",
-  "device.failed": "Connecting didn't finish: {reason}"
+  "device.failed": "Connecting didn't finish: {reason}",
+  "plugins.installed": "{count} plugins on this computer",
+  "plugins.syncNow": "Sync plugins",
+  "plugins.syncing": "Syncing…",
+  "plugins.changed": "Changed: {list}",
+  "plugins.failed": "{name} {version}: {reason}",
+  "plugins.reason.not_verified:no_keys": "no signing key is built into this app yet",
+  "plugins.reason.not_verified:bad_signature": "the signature doesn't verify",
+  "plugins.reason.not_verified:mismatch": "the signature is for another package",
+  "plugins.reason.not_verified:expired": "the signature has expired",
+  "plugins.reason.not_verified:list_stale": "the revocation list is out of date",
+  "plugins.reason.not_verified:revoked": "this version was revoked",
+  "plugins.reason.checksum": "the download didn't match the catalogue",
+  "plugins.reason.package": "the package isn't safe to unpack",
+  "plugins.reason.io": "couldn't be downloaded or written",
+  "plugins.error": "Sync didn't run: {reason}"
 }

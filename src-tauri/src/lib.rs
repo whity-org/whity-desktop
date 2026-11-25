@@ -12,6 +12,7 @@ mod linking;
 mod loopback;
 mod oauth;
 mod php;
+mod plugins;
 mod store;
 mod tools;
 mod updates;
@@ -145,6 +146,90 @@ async fn forget_device(
     connection: String,
 ) -> Result<(), String> {
     connections.forget_device(&connection).await
+}
+
+/// Make this computer's plugins the workspace's: core's catalogue with the
+/// device token, verified against the keys pinned in the app, then the PHP
+/// host reloads when anything changed. Runs on a worker thread.
+async fn reconcile_plugins(
+    connections: &Connections,
+    php: &php::PhpHost,
+    reports: &plugins::SyncReports,
+    connection: &str,
+) -> Result<plugins::SyncReport, String> {
+    let outcome = async {
+        let token = connections.device_access_token(connection).await?;
+        let origin = connections.origin_of(connection)?;
+        let root = php.plugins_root().ok_or("the PHP runtime isn't running")?;
+        let data = php.data_dir().ok_or("the PHP runtime isn't running")?;
+        let connection_id = connection.to_string();
+        tokio::task::spawn_blocking(move || -> Result<(plugins::SyncReport, bool), String> {
+            let source = plugins::CoreSource::new(origin, token)?;
+            let trust = whity_plugins::Trust::new(whity_plugins::TrustedKeys::pinned())
+                .with_state_file(&data.join("plugin-revocations.json"));
+            if let Ok(Some(envelope)) = source.revocations() {
+                // A replay or a list for other keys changes nothing here.
+                let _ = trust.apply_revocation_list(&envelope);
+            }
+            let installer = whity_plugins::Installer::new(&root, &trust);
+            let installed_before = installer.installed().map_err(|e| e.to_string())?.len();
+            let reconciler = whity_plugins::Reconciler::new(installer);
+            let outcome = reconciler.run(&source)?;
+            let installed = whity_plugins::Installer::new(&root, &trust)
+                .installed()
+                .map(|list| list.len())
+                .unwrap_or(installed_before);
+            Ok((
+                plugins::report_of(&connection_id, &outcome, installed),
+                outcome.changed(),
+            ))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+    .await;
+    let report = match outcome {
+        Ok((report, changed)) => {
+            if changed {
+                php.restart();
+            }
+            report
+        }
+        Err(error) => plugins::SyncReport {
+            connection: connection.to_string(),
+            at: plugins::now_secs(),
+            installed: 0,
+            changed: vec![],
+            failed: vec![],
+            error: Some(error),
+        },
+    };
+    reports
+        .0
+        .lock()
+        .unwrap()
+        .insert(connection.to_string(), report.clone());
+    Ok(report)
+}
+
+/// Sync this computer's plugins with the workspace now.
+#[tauri::command]
+async fn sync_plugins(
+    connections: tauri::State<'_, Connections>,
+    php: tauri::State<'_, php::PhpHost>,
+    reports: tauri::State<'_, plugins::SyncReports>,
+    connection: String,
+) -> Result<plugins::SyncReport, String> {
+    reconcile_plugins(&connections, &php, &reports, &connection).await
+}
+
+/// The last plugin sync for a workspace, if one ran since the app started.
+#[tauri::command]
+fn plugin_sync_status(
+    reports: tauri::State<'_, plugins::SyncReports>,
+    connection: String,
+) -> Option<plugins::SyncReport> {
+    reports.0.lock().unwrap().get(&connection).cloned()
 }
 
 /// The AI tools found on this computer, and the workspaces each is connected to.
@@ -529,6 +614,23 @@ pub fn run() {
                 sessions: Mutex::new(HashMap::new()),
             });
             app.manage(php::start(app.handle()));
+            app.manage(plugins::SyncReports::default());
+            // Each enrolled workspace's plugins are brought up to date at start,
+            // once the PHP host has had a moment to come up.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                let connections = handle.state::<Connections>();
+                let php = handle.state::<php::PhpHost>();
+                let reports = handle.state::<plugins::SyncReports>();
+                for device in connections.devices() {
+                    if device.locked {
+                        continue;
+                    }
+                    let _ =
+                        reconcile_plugins(&connections, &php, &reports, &device.connection).await;
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -559,6 +661,8 @@ pub fn run() {
             list_devices,
             device_status,
             forget_device,
+            sync_plugins,
+            plugin_sync_status,
             php::php_host_status,
             php::php_request,
             php::hardware_settings,
