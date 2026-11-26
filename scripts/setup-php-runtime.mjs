@@ -21,6 +21,13 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 const VERSION = '1.14.0'
+// Whity's mirror of upstream's release (whity-org/whity-desktop, release
+// `frankenphp-v1.14.0`): upstream replaces its assets under the same tag from
+// time to time, which moved these digests three times in two days. Each
+// mirrored file was checked against upstream's digest and its GitHub build
+// attestation before upload; the release notes carry the upstream address and
+// SHA-256 of each one. The digests below are those files'.
+const MIRROR = `https://github.com/whity-org/whity-desktop/releases/download/frankenphp-v${VERSION}`
 const ASSETS = {
   'win32-x64': {
     name: 'frankenphp-windows-x86_64.zip',
@@ -28,11 +35,11 @@ const ASSETS = {
   },
   'linux-x64': {
     name: 'frankenphp-linux-x86_64',
-    sha256: '3cbe90ea9e5e377a11ed486fd21143d95b639dcae1cc34253804b2e0391e079a',
+    sha256: '2069f4c6c799707cd5133ea10c46ccd0224aa482eeb6254f5dbf3bbd7dc7f02c',
   },
   'darwin-arm64': {
     name: 'frankenphp-mac-arm64',
-    sha256: 'fc5dfe83dc6a00be1a8ca5a3d92a255ba2d42f4cb99cc8aa9b53c227756e186f',
+    sha256: '605421e02ee93da62e28537498e726d6f95c5efd0421fe4bea156d8db6992ab6',
   },
 }
 
@@ -68,7 +75,7 @@ if (!asset) {
   process.exit(1)
 }
 
-const url = `https://github.com/php/frankenphp/releases/download/v${VERSION}/${asset.name}`
+const url = `${MIRROR}/${asset.name}`
 console.log(`Downloading FrankenPHP v${VERSION} (${asset.name})...`)
 const response = await fetch(url, { redirect: 'follow' })
 if (!response.ok) {
