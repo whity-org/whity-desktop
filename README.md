@@ -18,7 +18,7 @@ Where it is going: [ADR 0001, Whity Desktop foundations](docs/adr/0001-whity-des
 - **Act as one of your agents.** Agents you've granted appear under their workspace. Signing in as one adds a connection to `/mcp/agents/<slug>`, which the chat and the tools can use in place of you. The server enforces that agent's grant.
 
 - **In the tray.** One copy runs at a time, closing the window keeps it running, and starting at login is your choice. A `whity-agent://connect?instance=<address>` link only fills in the address (`src-tauri/src/desktop.rs`).
-- **Installers and signed updates.** See [install notes, in English and Arabic](docs/INSTALL.md). OS code signing is off for now; updates are always minisign-signed against the key in `src-tauri/updater.pub`. Releases are built as drafts by `.github/workflows/release.yml` and a person publishes them.
+- **Installers and signed updates.** See [install notes, in English and Arabic](docs/INSTALL.md). OS code signing is off for now; updates are always minisign-signed against the key in `src-tauri/updater.pub`, whichever way they arrive: a connected workspace's core is asked first (`GET /api/v1/desktop-app-updates/latest` with the device token, for this computer's channel), so an operator decides which version their computers run and when; Whity's own `latest.json` on GitHub Releases answers when no workspace offers anything. Each computer follows the stable channel or the beta one (Hardware tab). Releases are built as drafts by `.github/workflows/release.yml` and a person publishes them (`src-tauri/src/updates.rs`, ADR 0001 decisions 2b and 6).
 
 ## This computer's plugins
 
@@ -69,6 +69,14 @@ from the credential when something needs it and kept in memory. Disconnect
 revokes the device in the workspace and forgets the credential.
 
 ## The PHP runtime
+
+The FrankenPHP binaries come from Whity's own mirror, the `frankenphp-v1.14.0`
+release of this repository, not from upstream's release directly: upstream
+replaces its assets under the same tag from time to time, which moved the
+pinned digests three times in two days. Each mirrored file was checked
+against upstream's digest and its GitHub build attestation before upload, and
+the release notes carry the upstream address and SHA-256 of each one;
+`scripts/setup-php-runtime.mjs` still refuses any byte that does not match.
 
 Whity plugins are PHP. The app ships [FrankenPHP](https://frankenphp.dev) and
 runs them on the device, in a child process Rust starts and supervises

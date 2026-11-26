@@ -23,7 +23,7 @@ import { DeviceRow } from "./device-row"
 import { HardwarePanel } from "./hardware-panel"
 import { useI18n, type MessageKey } from "./i18n"
 import { ToolsPanel } from "./tools-panel"
-import { UpdateBanner } from "./update-banner"
+import { UpdateBanner, UpdateChannelChoice } from "./update-banner"
 
 const ERROR_KEYS: Record<SignInError, MessageKey> = {
   invalid_address: "errors.invalidAddress",
@@ -112,6 +112,7 @@ export function App() {
 
         <TabsContent value="hardware" className="flex flex-col gap-6">
           <HardwarePanel />
+          <UpdateChannelChoice />
         </TabsContent>
 
         <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col">

@@ -541,9 +541,27 @@ async fn send_chat(
 #[tauri::command]
 async fn check_for_update(
     app: tauri::AppHandle,
+    connections: tauri::State<'_, Connections>,
     pending: tauri::State<'_, updates::PendingUpdate>,
-) -> Result<Option<String>, String> {
-    updates::check(&app, &pending).await
+) -> Result<Option<updates::Found>, String> {
+    updates::check(&app, &connections, &pending).await
+}
+
+/// The release channel this device follows.
+#[tauri::command]
+fn get_update_channel(app: tauri::AppHandle) -> Result<updates::Channel, String> {
+    Ok(updates::read_channel(
+        &app.path().app_config_dir().map_err(|e| e.to_string())?,
+    ))
+}
+
+/// Follow stable releases only, or beta ones too.
+#[tauri::command]
+fn set_update_channel(app: tauri::AppHandle, channel: updates::Channel) -> Result<(), String> {
+    updates::write_channel(
+        &app.path().app_config_dir().map_err(|e| e.to_string())?,
+        channel,
+    )
 }
 
 #[tauri::command]
@@ -712,6 +730,9 @@ pub fn run() {
             // Each enrolled workspace's plugins and plugin data are brought up
             // to date at start, once the PHP host has had a moment to come up,
             // and then every ten minutes. A locked enrolment waits for a sign-in.
+            // The app itself is checked first: a plugin package assumes the
+            // runtime it was made for, so while a new app waits for a restart
+            // the plugins stay as they are.
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let mut wait = Duration::from_secs(5);
@@ -719,6 +740,11 @@ pub fn run() {
                     tokio::time::sleep(wait).await;
                     wait = Duration::from_secs(600);
                     let connections = handle.state::<Connections>();
+                    let pending = handle.state::<updates::PendingUpdate>();
+                    let _ = updates::check(&handle, &connections, &pending).await;
+                    if updates::is_pending(&pending) {
+                        continue;
+                    }
                     let php = handle.state::<php::PhpHost>();
                     let reports = handle.state::<plugins::SyncReports>();
                     let data_reports = handle.state::<sync::DataSyncReports>();
@@ -746,6 +772,8 @@ pub fn run() {
             set_start_at_login,
             check_for_update,
             install_update,
+            get_update_channel,
+            set_update_channel,
             send_chat,
             stop_chat,
             new_chat,

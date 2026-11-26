@@ -88,8 +88,20 @@ export const signInAgent = (connection: string, slug: string) => invoke<Connecti
 export const connectionName = (connection: Connection) => connection.name ?? new URL(connection.resource).host
 
 /** Downloads a newer version if there is one, and answers its version when it's ready. */
-export const checkForUpdate = () => invoke<string | null>("check_for_update")
+/** An update downloaded and waiting: its version and who offered it. */
+export interface UpdateFound {
+  version: string
+  /** `workspace` when a workspace's core offered it, `whity` for Whity's own feed. */
+  source: "workspace" | "whity"
+}
+
+/** The release channel this device follows. */
+export type UpdateChannel = "stable" | "beta"
+
+export const checkForUpdate = () => invoke<UpdateFound | null>("check_for_update")
 export const installUpdate = () => invoke<void>("install_update")
+export const getUpdateChannel = () => invoke<UpdateChannel>("get_update_channel")
+export const setUpdateChannel = (channel: UpdateChannel) => invoke<void>("set_update_channel", { channel })
 
 /** A workspace address a `whity-agent://` link brought. It only fills in the form. */
 export const takeConnectLink = () => invoke<string | null>("take_connect_link")
